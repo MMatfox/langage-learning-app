@@ -1,9 +1,76 @@
 @import "tailwindcss";
 
-/* Tes styles personnalisés en dessous si besoin */
+@theme {
+  --color-*: initial;
+  --color-slate-50: #f8fafc;
+  --color-slate-900: #1e293b;
+}
+
+/* Configuration du mode sombre basé sur la classe */
+@variant dark (&:where(.dark, .dark *));
+
+/* Styles personnalisés */
 html, body, #root {
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background-color: #f8fafc;
+}
+
+/* Thème clair - Fond neutre et doux */
+html {
+  background-color: #f1f5f9;
+  transition: background-color 0.3s ease;
+}
+
+/* Thème sombre - Fond sombre doux (pas noir) */
+html.dark {
+  background-color: #1e293b;
+}
+
+/* Animation de fade-in */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Animation de slide-down */
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out;
+}
+
+/* Animation de slide-up */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out;
 }

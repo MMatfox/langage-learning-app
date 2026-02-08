@@ -1,42 +1,65 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { generateNewWord } from '../services/aiService'
+import { useApp } from '../AppContext'
 
 export default function Words() {
+  const { profile, addXP } = useApp()
   const [currentWord, setCurrentWord] = useState(null)
-  const [loading, setLoading] = useState(true) // On charge au début
+  const [words, setWords] = useState([])
+  const [loading, setLoading] = useState(true)
   const [isListening, setIsListening] = useState(false)
   
-  // Charge le dernier mot en cours ou reste vide
   useEffect(() => {
-    const loadState = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // On cherche un mot "en cours" (niveau 0)
-      const { data } = await supabase
-        .from('learned_words')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('mastery_level', 0) 
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (data) {
-        setCurrentWord(data)
-      }
-      setLoading(false)
+    if (profile?.target_language) {
+      loadState()
+      fetchLearnedWords()
     }
-    loadState()
-  }, [])
+  }, [profile?.target_language])
+
+  const loadState = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user || !profile?.target_language) return
+
+    const { data } = await supabase
+      .from('learned_words')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('language', profile.target_language)
+      .eq('mastery_level', 0)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (data) {
+      setCurrentWord(data)
+    }
+    setLoading(false)
+  }
+
+  const fetchLearnedWords = async () => {
+    if (!profile?.target_language) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { data } = await supabase
+      .from('learned_words')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('language', profile.target_language)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    if (data) {
+      setWords(data)
+    }
+  }
 
   const speak = (text) => {
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = 'ko-KR'
     
-    // Fix voix (optionnel, reprends ta fonction speak améliorée précédente si tu veux)
     const voices = window.speechSynthesis.getVoices()
     const koVoice = voices.find(v => v.lang.includes('ko'))
     if(koVoice) utterance.voice = koVoice
@@ -45,21 +68,28 @@ export default function Words() {
   }
 
   const fetchNewWord = async () => {
+    if (!profile?.target_language) return
+    
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       
-      // 1. Récupérer TOUS les mots (appris + en cours) pour éviter répétitions
-      const { data: existing } = await supabase.from('learned_words').select('word').eq('user_id', user.id)
+      const { data: existing } = await supabase
+        .from('learned_words')
+        .select('word')
+        .eq('user_id', user.id)
+        .eq('language', profile.target_language)
       const excludeList = existing?.map(w => w.word) || []
       
-      // 2. Récupérer niveau
-      const { data: prof } = await supabase.from('profiles').select('level').eq('id', user.id).single()
+      const { data: langProfile } = await supabase
+        .from('language_profiles')
+        .select('level')
+        .eq('user_id', user.id)
+        .eq('language', profile.target_language)
+        .single()
       
-      // 3. Générer
-      const aiData = await generateNewWord(excludeList, prof?.level || 1)
+      const aiData = await generateNewWord(excludeList, langProfile?.level || 1)
       
-      // 4. SAUVEGARDER IMMÉDIATEMENT (Niveau 0 = En cours)
       const { data: savedWord, error } = await supabase.from('learned_words').insert([
         { 
           user_id: user.id, 
@@ -68,12 +98,14 @@ export default function Words() {
           translation: aiData.translation,
           example_kr: aiData.example_kr,
           example_fr: aiData.example_fr,
-          mastery_level: 0 // Marqueur "Non validé"
+          language: profile.target_language,
+          mastery_level: 0
         }
       ]).select().single()
 
       if (error) throw error
       setCurrentWord(savedWord)
+      fetchLearnedWords()
 
     } catch (error) {
       console.error("Erreur génération:", error)
@@ -97,7 +129,6 @@ export default function Words() {
 
     recognition.onresult = async (event) => {
       const transcript = event.results[0][0].transcript.trim()
-      // Comparaison souple
       if (transcript.toLowerCase().includes(currentWord.word.replace(/[!?.]/g, '').toLowerCase())) {
         alert("Bravo ! Excellente prononciation ✅ (+10 XP)")
         await validateWord()
@@ -111,74 +142,131 @@ export default function Words() {
   const validateWord = async () => {
     if (!currentWord) return
     
-    // Mise à jour : on passe de 0 à 20%
     const { error } = await supabase
       .from('learned_words')
       .update({ mastery_level: 20 })
       .eq('id', currentWord.id)
 
     if (!error) {
-      await supabase.rpc('add_xp', { amount: 10 })
-      // On met à jour l'état local pour afficher le badge "Appris"
-      setCurrentWord(prev => ({ ...prev, mastery_level: 20 }))
+      await addXP(10)
+      setCurrentWord(null)
+      fetchLearnedWords()
     }
   }
 
-  const isLearned = currentWord?.mastery_level > 0
+  const markAsKnown = async () => {
+    if (!currentWord) return
+    
+    const { error } = await supabase
+      .from('learned_words')
+      .update({ mastery_level: 100 })
+      .eq('id', currentWord.id)
 
-  return (
-    <div className="p-6 pb-24 flex flex-col items-center justify-center min-h-full space-y-8 max-w-md mx-auto">
-      <h2 className="text-xl font-black text-slate-300 uppercase tracking-widest pt-8">Apprentissage</h2>
+    if (!error) {
+      await addXP(20)
+      setCurrentWord(null)
+      fetchLearnedWords()
+    }
+  }
 
-      {currentWord ? (
-        <div className="w-full bg-white p-8 rounded-[40px] shadow-xl shadow-blue-100/50 text-center space-y-6 border border-slate-50 relative overflow-hidden animate-fade-in">
-          {isLearned && (
-            <div className="absolute top-4 right-4 text-green-500 font-bold text-xs bg-green-50 px-2 py-1 rounded-lg">
-              Appris ✓
-            </div>
-          )}
-          
-          <div className="py-4">
-            <div className="text-6xl font-black text-slate-800 mb-2">{currentWord.word}</div>
-            <div className="text-lg text-blue-500 font-medium italic">{currentWord.romanization}</div>
-          </div>
-          
-          <div className="text-2xl font-bold text-slate-700 border-t border-slate-50 pt-6">
-            {currentWord.translation}
-          </div>
+  if (loading) return (
+    <div className="h-full flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+    </div>
+  )
 
-          <div className="bg-slate-50 p-4 rounded-2xl text-sm text-left border border-slate-100">
-            <p className="font-bold text-slate-800 mb-1">{currentWord.example_kr}</p>
-            <p className="text-slate-500 italic">{currentWord.example_fr}</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 pt-4">
-            <button onClick={() => speak(currentWord.word)} className="bg-blue-50 text-blue-600 p-5 rounded-3xl active:scale-95 transition-all flex flex-col items-center gap-1 font-bold">
-              <span className="text-2xl">🔊</span> <span className="text-[10px] uppercase">Écouter</span>
-            </button>
-            <button onClick={startListening} className={`${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-900 text-white'} p-5 rounded-3xl active:scale-95 transition-all flex flex-col items-center gap-1 font-bold shadow-lg shadow-slate-200`}>
-              <span className="text-2xl">🎤</span> <span className="text-[10px] uppercase">{isListening ? 'Parle...' : 'Répéter'}</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="text-center space-y-4 py-20">
-          {!loading && (
-            <>
-               <div className="text-6xl animate-bounce">🇰🇷</div>
-               <p className="text-slate-400 font-medium">Prêt pour ton prochain mot ?</p>
-            </>
-          )}
-        </div>
-      )}
-
+  if (!currentWord) return (
+    <div className="p-6 pb-28 max-w-md mx-auto">
+      <header className="pt-8 mb-8">
+        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Nouveau Mot</h2>
+        <p className="text-slate-600 dark:text-slate-300 text-sm mt-2">Apprends un nouveau mot en {profile.target_language}</p>
+      </header>
       <button 
         onClick={fetchNewWord}
-        disabled={loading}
-        className="w-full bg-blue-600 text-white py-5 rounded-[28px] font-black shadow-xl shadow-blue-200 active:scale-95 disabled:opacity-50 transition-all uppercase tracking-wider"
+        className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all"
       >
-        {loading ? "Chargement..." : "Nouveau mot"}
+        Générer un mot
       </button>
+      
+      {words.length > 0 && (
+        <div className="mt-8">
+          <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-3">Mots récents ({words.length})</h3>
+          <div className="space-y-2">
+            {words.map(w => (
+              <div key={w.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                <div>
+                  <span className="font-bold text-slate-800 dark:text-white">{w.word}</span>
+                  <span className="text-slate-500 dark:text-slate-400 text-xs ml-2">{w.translation}</span>
+                </div>
+                <span className="text-xs text-slate-400 dark:text-slate-500">{w.mastery_level}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div className="p-6 pb-28 max-w-md mx-auto">
+      <header className="pt-8 mb-6">
+        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Nouveau Mot</h2>
+      </header>
+
+      <div className="bg-white dark:bg-slate-800 p-8 rounded-[3rem] shadow-xl border border-slate-200 dark:border-slate-700 mb-6">
+        <div className="text-center mb-6">
+          <button 
+            onClick={() => speak(currentWord.word)}
+            className="text-6xl font-black text-slate-800 dark:text-white mb-2 active:scale-95 transition-transform"
+          >
+            {currentWord.word}
+          </button>
+          <p className="text-blue-600 dark:text-blue-400 text-sm font-bold">{currentWord.romanization}</p>
+        </div>
+
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl mb-4">
+          <p className="text-slate-800 dark:text-white font-bold text-center">{currentWord.translation}</p>
+        </div>
+
+        {currentWord.example_kr && (
+          <div className="space-y-2 border-t border-slate-200 dark:border-slate-700 pt-4">
+            <p className="text-slate-800 dark:text-white text-sm font-medium">{currentWord.example_kr}</p>
+            <p className="text-slate-500 dark:text-slate-400 text-xs italic">{currentWord.example_fr}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <button 
+          onClick={() => speak(currentWord.word)}
+          className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl active:scale-95 transition-all flex flex-col items-center gap-1 font-bold border border-blue-200 dark:border-blue-800"
+        >
+          <span className="text-2xl">🔊</span>
+          <span className="text-[10px] uppercase">Écouter</span>
+        </button>
+        <button 
+          onClick={startListening}
+          className={`${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-800 dark:bg-slate-700 text-white'} p-4 rounded-2xl active:scale-95 transition-all flex flex-col items-center gap-1 font-bold shadow-lg`}
+        >
+          <span className="text-2xl">🎤</span>
+          <span className="text-[10px] uppercase">{isListening ? 'Parle...' : 'Répéter'}</span>
+        </button>
+      </div>
+
+      <div className="flex gap-3">
+        <button 
+          onClick={markAsKnown}
+          className="flex-1 bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all"
+        >
+          ✅ Je connais
+        </button>
+        <button 
+          onClick={fetchNewWord}
+          className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all"
+        >
+          ➡️ Suivant
+        </button>
+      </div>
     </div>
   )
 }

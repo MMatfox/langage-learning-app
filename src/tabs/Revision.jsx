@@ -1,27 +1,25 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
-// N'oublie pas d'importer la nouvelle fonction !
 import { generateRevisionQuiz } from '../services/aiService'
+import { useApp } from '../AppContext'
 
 export default function Revision() {
+  const { profile, addXP } = useApp()
   const [activeTab, setActiveTab] = useState('words')
   
-  // États Mots
   const [words, setWords] = useState([])
   const [filterWord, setFilterWord] = useState('all')
   
-  // États Leçons
   const [lessons, setLessons] = useState([])
   const [selectedLesson, setSelectedLesson] = useState(null)
   
-  // États Quiz de Révision
-  const [revisionQuiz, setRevisionQuiz] = useState(null) // Stocke les questions
+  const [revisionQuiz, setRevisionQuiz] = useState(null)
   const [quizLoading, setQuizLoading] = useState(false)
   const [currentQIndex, setCurrentQIndex] = useState(0)
   const [quizScore, setQuizScore] = useState(0)
   const [quizFinished, setQuizFinished] = useState(false)
   const [selectedAnswer, setSelectedAnswer] = useState(null)
-  const [answerFeedback, setAnswerFeedback] = useState(null) // 'correct' | 'wrong'
+  const [answerFeedback, setAnswerFeedback] = useState(null)
   
   const [loading, setLoading] = useState(true)
 
@@ -29,13 +27,14 @@ export default function Revision() {
     const fetchData = async () => {
       setLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user || !profile?.target_language) return
 
       if (activeTab === 'words') {
         let query = supabase
           .from('learned_words')
           .select('*')
           .eq('user_id', user.id)
+          .eq('language', profile.target_language)
           .gte('mastery_level', 0)
           .order('mastery_level', { ascending: true })
 
@@ -45,10 +44,10 @@ export default function Revision() {
         setWords(data || [])
       } else {
         const { data } = await supabase
-          .from('lessons')
+          .from('completed_lessons')
           .select('*')
           .eq('user_id', user.id)
-          .eq('completed', true)
+          .eq('language', profile.target_language)
           .order('created_at', { ascending: false })
           
         setLessons(data || [])
@@ -57,7 +56,7 @@ export default function Revision() {
     }
 
     fetchData()
-  }, [activeTab, filterWord])
+  }, [activeTab, filterWord, profile?.target_language])
 
   const boostMastery = async (id, current) => {
     const newMastery = Math.min(current + 10, 100)
@@ -66,16 +65,13 @@ export default function Revision() {
       .from('learned_words')
       .update({ mastery_level: newMastery })
       .eq('id', id)
-    if (!error) await supabase.rpc('add_xp', { amount: 5 })
+    if (!error) await addXP(5)
   }
-
-  // --- LOGIQUE DU QUIZ DE RÉVISION ---
 
   const startRevisionQuiz = async () => {
     setQuizLoading(true)
     try {
       const content = selectedLesson.content
-      // On génère 3 questions basées sur le titre et le vocabulaire
       const questions = await generateRevisionQuiz(content.title, content.vocabulary || [])
       
       setRevisionQuiz(questions)
@@ -93,7 +89,7 @@ export default function Revision() {
   }
 
   const handleQuizAnswer = (option) => {
-    if (answerFeedback) return // Empêche de cliquer 2 fois
+    if (answerFeedback) return
 
     setSelectedAnswer(option)
     const currentQuestion = revisionQuiz[currentQIndex]
@@ -105,7 +101,6 @@ export default function Revision() {
       setAnswerFeedback('wrong')
     }
 
-    // Passage automatique à la question suivante après 1.5s
     setTimeout(() => {
       if (currentQIndex < revisionQuiz.length - 1) {
         setCurrentQIndex(prev => prev + 1)
@@ -119,10 +114,7 @@ export default function Revision() {
 
   const finishQuiz = async () => {
     setQuizFinished(true)
-    // Bonus XP si score parfait
-    // On ajoute +10 XP par bonne réponse via Supabase
-    // Ici on simule un gain global pour l'exemple (20 XP fixes pour la révision)
-    await supabase.rpc('add_xp', { amount: 20 })
+    await addXP(20)
   }
 
   const closeQuiz = () => {
@@ -130,91 +122,88 @@ export default function Revision() {
     setQuizFinished(false)
   }
 
-  // --- AFFICHAGE DÉTAIL LEÇON ---
+  // Mode QUIZ
+  if (selectedLesson && revisionQuiz) {
+    return (
+      <div className="p-6 pb-28 max-w-md mx-auto">
+        <button onClick={closeQuiz} className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-bold mb-6 text-xs uppercase tracking-widest">
+          ← Quitter le quiz
+        </button>
+
+        {!quizFinished ? (
+          <div className="bg-white dark:bg-slate-800 p-8 rounded-[3rem] shadow-xl border border-slate-200 dark:border-slate-700">
+            <div className="flex justify-between items-center mb-6">
+              <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                Question {currentQIndex + 1} / {revisionQuiz.length}
+              </span>
+              <span className="text-slate-300 dark:text-slate-600 font-bold text-xs">XP ++</span>
+            </div>
+            
+            <h3 className="text-xl font-black text-slate-800 dark:text-white mb-8 text-center leading-snug">
+              {revisionQuiz[currentQIndex].question}
+            </h3>
+
+            <div className="space-y-3">
+              {revisionQuiz[currentQIndex].options.map((opt, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleQuizAnswer(opt)}
+                  className={`w-full p-4 rounded-2xl font-bold text-left transition-all border-2 ${
+                    selectedAnswer === opt
+                      ? (answerFeedback === 'correct' 
+                          ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
+                          : 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400')
+                      : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-blue-400 dark:hover:border-blue-500 active:scale-95'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-slate-800 p-10 rounded-[3rem] shadow-xl border border-slate-200 dark:border-slate-700 text-center">
+            <div className="text-6xl mb-4">🏆</div>
+            <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-2">Révision terminée !</h3>
+            <p className="text-slate-500 dark:text-slate-400 mb-6">
+              Score : <span className="text-blue-600 dark:text-blue-400 font-bold">{quizScore} / {revisionQuiz.length}</span>
+            </p>
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 p-4 rounded-2xl font-bold mb-8 text-sm">
+              +20 XP gagnés
+            </div>
+            <button 
+              onClick={closeQuiz}
+              className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white py-4 rounded-2xl font-bold active:scale-95 transition-all"
+            >
+              Retour à la leçon
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Affichage détail leçon
   if (selectedLesson) {
     const content = selectedLesson.content
-    
-    // Si on est en mode QUIZ
-    if (revisionQuiz) {
-      return (
-        <div className="p-6 pb-28 max-w-md mx-auto animate-fade-in">
-          <button onClick={closeQuiz} className="text-slate-400 font-bold mb-6 text-xs uppercase tracking-widest">
-            Quitter le quiz
-          </button>
-
-          {!quizFinished ? (
-            <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100">
-              <div className="flex justify-between items-center mb-6">
-                <span className="bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                  Question {currentQIndex + 1} / {revisionQuiz.length}
-                </span>
-                <span className="text-slate-300 font-bold text-xs">XP ++</span>
-              </div>
-              
-              <h3 className="text-xl font-black text-slate-800 mb-8 text-center leading-snug">
-                {revisionQuiz[currentQIndex].question}
-              </h3>
-
-              <div className="space-y-3">
-                {revisionQuiz[currentQIndex].options.map((opt, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleQuizAnswer(opt)}
-                    className={`w-full p-4 rounded-2xl font-bold text-left transition-all border-2 ${
-                      selectedAnswer === opt
-                        ? (answerFeedback === 'correct' 
-                            ? 'border-green-500 bg-green-50 text-green-700' 
-                            : 'border-red-500 bg-red-50 text-red-700')
-                        : 'border-slate-100 bg-slate-50 text-slate-600 active:border-blue-400 active:scale-95'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            // ÉCRAN DE FIN DE QUIZ
-            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 text-center animate-slide-up">
-              <div className="text-6xl mb-4">🏆</div>
-              <h3 className="text-2xl font-black text-slate-800 mb-2">Révision terminée !</h3>
-              <p className="text-slate-500 mb-6">
-                Score : <span className="text-blue-600 font-bold">{quizScore} / {revisionQuiz.length}</span>
-              </p>
-              <div className="bg-yellow-50 text-yellow-600 p-4 rounded-2xl font-bold mb-8 text-sm">
-                +20 XP gagnés
-              </div>
-              <button 
-                onClick={closeQuiz}
-                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold active:scale-95 transition-all"
-              >
-                Retour à la leçon
-              </button>
-            </div>
-          )}
-        </div>
-      )
-    }
-
-    // Affichage normal de la leçon
     if (!content) return null
 
     return (
-      <div className="p-6 pb-28 max-w-md mx-auto animate-fade-in">
+      <div className="p-6 pb-28 max-w-md mx-auto">
         <button 
           onClick={() => setSelectedLesson(null)} 
-          className="text-blue-500 font-bold mb-4 flex items-center gap-2"
+          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold mb-4 flex items-center gap-2"
         >
           ← Retour aux révisions
         </button>
         
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
-          <h3 className="text-2xl font-black text-slate-800 mb-4">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-lg border border-slate-200 dark:border-slate-700 mb-6">
+          <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-4">
             {content.title || "Leçon"}
           </h3>
-          <div className="text-slate-600 text-sm leading-relaxed space-y-2">
+          <div className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed space-y-2">
             {content.explanation && (
-              <p className="italic border-l-4 border-blue-400 pl-4">
+              <p className="italic border-l-4 border-blue-400 dark:border-blue-500 pl-4 py-2 bg-blue-50 dark:bg-blue-900/10 rounded-r-lg">
                 {typeof content.explanation === 'string' 
                   ? content.explanation 
                   : "Explication disponible en mode lecture."}
@@ -224,26 +213,27 @@ export default function Revision() {
         </div>
 
         {content.vocabulary && Array.isArray(content.vocabulary) && content.vocabulary.length > 0 && (
-          <div className="grid gap-3 mt-6">
-            <h4 className="text-xs font-black text-slate-400 uppercase">Vocabulaire</h4>
-            {content.vocabulary.map((v, i) => (
-              <div key={i} className="bg-white p-3 rounded-xl flex justify-between border border-slate-50">
-                <span className="font-bold">{v.kr || "?"}</span>
-                <span className="text-slate-500 text-sm">{v.fr || "?"}</span>
-              </div>
-            ))}
+          <div className="mb-6">
+            <h4 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-3">Vocabulaire</h4>
+            <div className="space-y-2">
+              {content.vocabulary.map((v, i) => (
+                <div key={i} className="bg-white dark:bg-slate-800 p-4 rounded-xl flex justify-between border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all">
+                  <span className="font-bold text-slate-800 dark:text-white">{v.kr || "?"}</span>
+                  <span className="text-slate-500 dark:text-slate-400 text-sm">{v.fr || "?"}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* --- NOUVEAU BOUTON : LANCER LE QUIZ --- */}
-        <div className="mt-8 border-t border-slate-200 pt-6">
-          <p className="text-center text-slate-400 text-xs font-bold uppercase mb-4 tracking-widest">
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+          <p className="text-center text-slate-400 dark:text-slate-500 text-xs font-bold uppercase mb-4 tracking-widest">
             Besoin de pratiquer ?
           </p>
           <button 
             onClick={startRevisionQuiz}
             disabled={quizLoading}
-            className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-purple-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {quizLoading ? (
               <span className="animate-pulse">Génération du quiz...</span>
@@ -258,17 +248,17 @@ export default function Revision() {
     )
   }
 
-  // --- LISTE PRINCIPALE (Mots / Leçons) ---
+  // Liste principale
   return (
     <div className="p-6 pb-28 max-w-md mx-auto">
       <header className="pt-8 mb-6">
-        <h2 className="text-3xl font-black text-slate-800 tracking-tight">Révisions</h2>
+        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Révisions</h2>
         
-        <div className="flex bg-slate-200 p-1 rounded-2xl mt-4">
+        <div className="flex bg-slate-200 dark:bg-slate-700 p-1 rounded-2xl mt-4">
           <button 
             onClick={() => setActiveTab('words')} 
             className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'words' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'
+              activeTab === 'words' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'
             }`}
           >
             Mots
@@ -276,7 +266,7 @@ export default function Revision() {
           <button 
             onClick={() => setActiveTab('lessons')} 
             className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'lessons' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'
+              activeTab === 'lessons' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'
             }`}
           >
             Leçons
@@ -287,16 +277,16 @@ export default function Revision() {
           <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
             <button 
               onClick={() => setFilterWord('all')} 
-              className={`px-4 py-1.5 rounded-full text-xs font-bold border ${
-                filterWord === 'all' ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-200 text-slate-500'
+              className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                filterWord === 'all' ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-blue-400 dark:hover:border-blue-500'
               }`}
             >
               Tous
             </button>
             <button 
               onClick={() => setFilterWord('weak')} 
-              className={`px-4 py-1.5 rounded-full text-xs font-bold border ${
-                filterWord === 'weak' ? 'bg-red-500 text-white border-red-500' : 'border-slate-200 text-slate-500'
+              className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                filterWord === 'weak' ? 'bg-red-500 text-white border-red-500' : 'border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-red-400 dark:hover:border-red-500'
               }`}
             >
               À revoir
@@ -307,42 +297,40 @@ export default function Revision() {
 
       <div className="space-y-4">
         {loading ? (
-          <div className="text-center py-10 text-slate-400 animate-pulse">Chargement...</div>
+          <div className="text-center py-10 text-slate-400 dark:text-slate-500 animate-pulse">Chargement...</div>
         ) : activeTab === 'words' ? (
-          /* LISTE DES MOTS */
           words.length > 0 ? words.map(word => (
-            <div key={word.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
+            <div key={word.id} className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-xl transition-all">
               <div className="flex-1">
                 <div className="flex justify-between items-center mb-1">
-                  <h4 className="text-xl font-black text-slate-800">{word.word}</h4>
-                  <span className="text-[10px] font-bold text-slate-400">{word.mastery_level}%</span>
+                  <h4 className="text-xl font-black text-slate-800 dark:text-white">{word.word}</h4>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{word.mastery_level}%</span>
                 </div>
-                <p className="text-slate-500 text-sm">{word.translation}</p>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
-                  <div className={`h-full ${word.mastery_level < 50 ? 'bg-orange-400' : 'bg-green-400'}`} style={{ width: `${Math.max(word.mastery_level, 5)}%` }}></div>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">{word.translation}</p>
+                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full mt-2 overflow-hidden">
+                  <div className={`h-full transition-all ${word.mastery_level < 50 ? 'bg-orange-400' : 'bg-green-400'}`} style={{ width: `${Math.max(word.mastery_level, 5)}%` }}></div>
                 </div>
               </div>
-              <button onClick={() => boostMastery(word.id, word.mastery_level)} disabled={word.mastery_level >= 100} className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-lg active:scale-90 transition-all">
+              <button onClick={() => boostMastery(word.id, word.mastery_level)} disabled={word.mastery_level >= 100} className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-lg active:scale-90 transition-all hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-50">
                 {word.mastery_level >= 100 ? '✅' : '🔥'}
               </button>
             </div>
-          )) : <p className="text-center text-slate-400 py-10">Aucun mot appris.</p>
+          )) : <p className="text-center text-slate-400 dark:text-slate-500 py-10">Aucun mot appris.</p>
         ) : (
-          /* LISTE DES LEÇONS */
           lessons.length > 0 ? lessons.map(l => (
             <div 
               key={l.id} 
               onClick={() => setSelectedLesson(l)}
-              className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 cursor-pointer active:scale-95 transition-all group"
+              className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700 cursor-pointer active:scale-95 transition-all group hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-600"
             >
-              <h4 className="text-lg font-black text-slate-800 mb-1 group-hover:text-blue-600 transition-colors">
+              <h4 className="text-lg font-black text-slate-800 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                 {l.title || "Leçon sans titre"}
               </h4>
-              <p className="text-slate-400 text-xs">
+              <p className="text-slate-400 dark:text-slate-500 text-xs">
                 Complétée le {new Date(l.created_at).toLocaleDateString()}
               </p>
             </div>
-          )) : <p className="text-center text-slate-400 py-10">Aucune leçon terminée.</p>
+          )) : <p className="text-center text-slate-400 dark:text-slate-500 py-10">Aucune leçon terminée.</p>
         )}
       </div>
     </div>

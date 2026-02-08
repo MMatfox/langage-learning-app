@@ -1,0 +1,84 @@
+create table public.profiles (
+  id uuid not null,
+  username text null,
+  avatar_url text null,
+  xp integer null default 0,
+  level integer null default 1,
+  native_lang text null default 'fr'::text,
+  theme text null default 'light'::text,
+  created_at timestamp with time zone null default timezone ('utc'::text, now()),
+  email text not null,
+  ui_language text null default 'Français'::text,
+  target_language text null default 'Coréen'::text,
+  constraint profiles_pkey primary key (id),
+  constraint unique_email unique (email),
+  constraint profiles_id_fkey foreign KEY (id) references auth.users (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+
+create table public.lessons (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid not null,
+  title text not null,
+  content jsonb not null,
+  completed boolean null default false,
+  created_at timestamp with time zone null default now(),
+  constraint lessons_pkey primary key (id),
+  constraint lessons_user_id_fkey foreign KEY (user_id) references auth.users (id)
+) TABLESPACE pg_default;
+
+create table public.learned_words (
+  id uuid not null default extensions.uuid_generate_v4 (),
+  user_id uuid null,
+  word text not null,
+  translation text not null,
+  mastery_level integer null default 0,
+  last_reviewed timestamp with time zone null default now(),
+  romanization text null,
+  example_kr text null,
+  example_fr text null,
+  created_at timestamp with time zone null default now(),
+  constraint learned_words_pkey primary key (id),
+  constraint learned_words_user_id_fkey foreign KEY (user_id) references auth.users (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create table public.completed_lessons (
+  id uuid not null default extensions.uuid_generate_v4 (),
+  user_id uuid null,
+  title text not null,
+  content jsonb null,
+  success_rate integer null,
+  created_at timestamp with time zone null default now(),
+  constraint completed_lessons_pkey primary key (id),
+  constraint completed_lessons_user_id_fkey foreign KEY (user_id) references auth.users (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+
+
+Name of function : add_xp
+Arguments : 	
+amount integer
+
+BEGIN
+  UPDATE public.profiles
+  SET 
+    xp = xp + amount,
+    -- Calcul automatique du niveau : 1 niveau tous les 100 XP
+    -- floor() arrondit à l'entier inférieur
+    level = floor((xp + amount) / 100) + 1
+  WHERE id = auth.uid();
+END;
+
+
+Name of Function : handle_new_user
+
+BEGIN
+  INSERT INTO public.profiles (id, username, xp, level)
+  VALUES (
+    new.id, 
+    new.email, -- On utilise l'email comme nom par défaut
+    0, 
+    1
+  );
+  RETURN new;
+END;

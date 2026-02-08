@@ -1,52 +1,35 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
+import { useApp } from '../AppContext'
 
 export default function Home() {
-  const [profile, setProfile] = useState({ xp: 0, level: 1, username: 'Étudiant' })
+  const { profile, languageProfile, loading: profileLoading } = useApp()
   const [stats, setStats] = useState({ words: 0, lessons: 0 })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchUserData()
-
-    // Petit bonus : si l'utilisateur change ou si la session est rafraîchie
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    if (profile?.target_language) {
       fetchUserData()
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
+    }
+  }, [profile?.target_language])
 
   async function fetchUserData() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user || !profile?.target_language) return
 
-      // 1. Récupérer le profil
-      const { data: prof, error: profError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-        if (profError) {
-        console.warn("Profil introuvable, il sera créé au prochain événement.");
-        } else if (prof) {
-        setProfile(prof);
-        } 
-
-      if (prof) setProfile(prof)
-
-      // 2. Récupérer les stats en temps réel
+      // Récupérer les stats filtrées par langue
       const { count: wordCount } = await supabase
         .from('learned_words')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
+        .eq('language', profile.target_language)
 
       const { count: lessonCount } = await supabase
         .from('completed_lessons')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
+        .eq('language', profile.target_language)
 
       setStats({ words: wordCount || 0, lessons: lessonCount || 0 })
     } catch (err) {
@@ -56,79 +39,105 @@ export default function Home() {
     }
   }
 
-  if (loading) return (
+  if (loading || profileLoading) return (
     <div className="h-full flex items-center justify-center">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
     </div>
   )
 
+  if (!profile) return null
+
   return (
-    <div className="p-6 space-y-8 pb-24">
-      {/* Header */}
-      <header className="flex justify-between items-center pt-8">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-            Salut, {profile.username.split('@')[0]} !
-          </h2>
-          <p className="text-slate-500 font-medium text-sm">Prêt pour ta dose de Coréen ?</p>
-        </div>
-        <div className="relative flex items-center justify-center w-14 h-14 bg-blue-600 rounded-2xl rotate-3 shadow-lg shadow-blue-200 border-2 border-white">
-          <span className="text-white font-black text-xl -rotate-3 leading-none">
-            {profile.level}
-          </span>
-        </div>
+    <div className="p-6 pb-28 max-w-md mx-auto">
+      {/* Header avec salutation */}
+      <header className="pt-8 mb-8">
+        <h1 className="text-4xl font-black text-slate-800 dark:text-white mb-2">
+          Bonjour, {profile.username || 'Apprenant'} 👋
+        </h1>
+        <p className="text-slate-600 dark:text-slate-300 text-sm font-medium">
+          Continue ton apprentissage !
+        </p>
       </header>
 
-      {/* Barre d'XP - Design plus "App" */}
-      <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
-        <div className="flex justify-between text-[10px] font-black text-slate-400 mb-3 uppercase tracking-[0.1em]">
-          <span>Progression Niveau</span>
-          <span className="text-blue-600">{profile.xp % 100} / 100 XP</span>
+      {/* Carte de niveau */}
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-lg mb-6 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Niveau Actuel</p>
+            <h2 className="text-4xl font-black text-blue-600 dark:text-blue-400">
+              Niveau {languageProfile.level}
+            </h2>
+          </div>
+          <div className="text-5xl">🎯</div>
         </div>
-        <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden p-1">
-          <div 
-            className="h-full bg-blue-500 rounded-full transition-all duration-700 ease-out shadow-[0_0_8px_rgba(59,130,246,0.5)]" 
-            style={{ width: `${profile.xp % 100}%` }}
-          ></div>
+
+        {/* Barre de progression XP */}
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs font-bold">
+            <span className="text-slate-600 dark:text-slate-300">{languageProfile.xp % 100} XP</span>
+            <span className="text-slate-400 dark:text-slate-500">100 XP</span>
+          </div>
+          <div className="w-full h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-blue-500 dark:bg-blue-400 rounded-full transition-all duration-500"
+              style={{ width: `${(languageProfile.xp % 100)}%` }}
+            ></div>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+            {100 - (languageProfile.xp % 100)} XP pour le niveau {languageProfile.level + 1}
+          </p>
         </div>
       </div>
 
       {/* Stats rapides */}
-      <div className="grid grid-cols-2 gap-4">
-        <StatCard icon="🧧" label="Mots" value={stats.words} color="bg-orange-50" textColor="text-orange-600" />
-        <StatCard icon="🎓" label="Leçons" value={stats.lessons} color="bg-purple-50" textColor="text-purple-600" />
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700">
+          <div className="text-3xl mb-2">📚</div>
+          <p className="text-2xl font-black text-slate-800 dark:text-white">{stats.lessons}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wide">Leçons</p>
+        </div>
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700">
+          <div className="text-3xl mb-2">🔤</div>
+          <p className="text-2xl font-black text-slate-800 dark:text-white">{stats.words}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wide">Mots</p>
+        </div>
       </div>
 
-      {/* Cards de raccourcis */}
-      <section className="space-y-4">
-        <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wider">
-          <span>🔥</span> Objectif du jour
-        </h3>
-        
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-[2.5rem] text-white shadow-xl shadow-blue-100 relative overflow-hidden group">
-          <div className="relative z-10">
-            <span className="text-blue-100 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Leçon suggérée</span>
-            <h4 className="text-xl font-bold mt-1">Les bases de la politesse</h4>
-            <p className="text-blue-100/80 text-xs mt-2 leading-relaxed max-w-[80%]">
-              Maîtrise les formules essentielles pour voyager sereinement.
+      {/* Carte d'encouragement */}
+      <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-6 rounded-[2.5rem] shadow-xl text-white mb-6">
+        <div className="flex items-center gap-4">
+          <div className="text-4xl">✨</div>
+          <div>
+            <h3 className="font-black text-lg mb-1">Continue comme ça !</h3>
+            <p className="text-white/90 text-sm">
+              Tu progresses bien en {profile.target_language} 🚀
             </p>
-            <button className="mt-5 bg-white text-blue-600 px-6 py-2.5 rounded-xl font-black text-xs active:scale-95 transition-all shadow-lg shadow-blue-900/20 uppercase">
-              Continuer
-            </button>
           </div>
-          <span className="absolute -right-6 -bottom-6 text-[10rem] opacity-10 pointer-events-none rotate-12">🇰🇷</span>
         </div>
-      </section>
+      </div>
+
+      {/* Suggestions d'actions */}
+      <div className="space-y-3">
+        <h3 className="text-slate-700 dark:text-slate-300 font-black text-sm uppercase tracking-widest mb-4">
+          Que veux-tu faire ?
+        </h3>
+        <ActionCard icon="📖" title="Nouvelle leçon" description="Apprends de nouveaux concepts" />
+        <ActionCard icon="🔁" title="Révision" description="Renforce tes connaissances" />
+        <ActionCard icon="🎯" title="Quiz" description="Teste tes compétences" />
+      </div>
     </div>
   )
 }
 
-function StatCard({ icon, label, value, color, textColor }) {
+function ActionCard({ icon, title, description }) {
   return (
-    <div className={`${color} p-5 rounded-[2rem] flex flex-col items-center text-center border border-white shadow-sm`}>
-      <span className="text-2xl mb-1">{icon}</span>
-      <span className={`text-2xl font-black ${textColor}`}>{value}</span>
-      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">{label}</span>
+    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-md border border-slate-200 dark:border-slate-700 flex items-center gap-4 active:scale-95 transition-transform cursor-pointer hover:shadow-lg">
+      <div className="text-3xl">{icon}</div>
+      <div className="flex-1">
+        <h4 className="font-black text-slate-800 dark:text-white text-sm">{title}</h4>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{description}</p>
+      </div>
+      <div className="text-slate-300 dark:text-slate-600">→</div>
     </div>
   )
 }
