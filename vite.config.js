@@ -8,10 +8,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Langage App',
-        short_name: 'LangageApp',
-        description: 'Mon application multi-plateforme',
-        theme_color: '#ffffff',
+        name: 'Langage Learning App',
+        short_name: 'LangApp',
+        theme_color: '#2563eb', // Le bleu qu'on a utilisé
         icons: [
           {
             src: 'pwa-192x192.png',
