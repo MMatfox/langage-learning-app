@@ -3,12 +3,16 @@ import { chatWithTutor } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Tutor() {
-  const { profile, t, showPopup } = useApp()
-  const [messages, setMessages] = useState([])
+  const { profile, t, showPopup, tutorMessages, setTutorMessages } = useApp()
+  // Utiliser le contexte pour les messages, sinon local (mais on veut persistance)
+  const messages = tutorMessages || []
+  const setMessages = setTutorMessages || (() => {})
+
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const chatEndRef = useRef(null)
+  const recognitionRef = useRef(null) // Pour contrôler l'instance
 
   // Configuration par langue
   const tutorConfig = {
@@ -21,12 +25,18 @@ export default function Tutor() {
   const currentConfig = tutorConfig[profile?.target_language] || tutorConfig['defaut']
 
   useEffect(() => {
-    // Initialiser le message d'accueil si vide
-    // On utilise t() pour traduire le message
     if (messages.length === 0) {
       setMessages([{ role: 'model', text: t(`tutor.${currentConfig.helloKey}`) }])
     }
-  }, [profile?.target_language, t])
+    
+    // Cleanup audio quand on quitte l'onglet
+    return () => {
+      window.speechSynthesis.cancel()
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+      }
+    }
+  }, [profile?.target_language]) // Dépendance simplifiée
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -34,11 +44,9 @@ export default function Tutor() {
 
   const speak = (text) => {
     window.speechSynthesis.cancel();
-    // Simple voice selection based on language code
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
     
-    // Essayer de trouver une voix pour la langue cible
     const targetVoice = voices.find(v => v.lang.includes(currentConfig.langCode.split('-')[0]));
     const frVoice = voices.find(v => v.lang.includes('fr'));
 
@@ -52,7 +60,14 @@ export default function Tutor() {
     window.speechSynthesis.speak(utterance);
   };
 
-  const startVoiceInput = () => {
+  const toggleVoiceInput = () => {
+    // Si déjà en écoute, on arrête
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+      return
+    }
+
     window.speechSynthesis.cancel()
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     
@@ -62,8 +77,13 @@ export default function Tutor() {
     }
 
     const recognition = new SpeechRecognition()
-    recognition.lang = currentConfig.langCode
+    recognitionRef.current = recognition
+    recognition.lang = currentConfig.langCode // Langue cible pour l'exercice
+    // Mais si l'utilisateur veut parler sa langue ? Idéalement détection auto ou bouton toggle lang
+    // Pour l'instant on reste sur la config
+    
     recognition.interimResults = false
+    recognition.maxAlternatives = 1
 
     recognition.onstart = () => setIsListening(true)
     
@@ -71,19 +91,23 @@ export default function Tutor() {
       console.error("Micro Error:", e.error)
       setIsListening(false)
       if (e.error === 'not-allowed') showPopup(t('tutor.micro_permission'), 'error')
+      if (e.error === 'no-speech') showPopup("Aucune parole détectée. Réessayez.", 'info')
     }
 
     recognition.onend = () => setIsListening(false)
 
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript
-      setInput(transcript)
+      if (transcript) {
+        setInput(prev => prev ? `${prev} ${transcript}` : transcript)
+      }
     }
 
     try {
       recognition.start()
     } catch (e) {
       console.error(e)
+      setIsListening(false)
     }
   }
 
@@ -159,7 +183,7 @@ export default function Tutor() {
         <form onSubmit={sendMessage} className="max-w-md mx-auto bg-white p-2 rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-slate-100 flex gap-2 items-center">
           <button 
             type="button"
-            onClick={startVoiceInput}
+            onClick={toggleVoiceInput}
             className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-50 text-slate-400'}`}
           >
             {isListening ? '●' : '🎤'}

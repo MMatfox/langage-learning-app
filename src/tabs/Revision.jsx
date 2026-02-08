@@ -22,6 +22,7 @@ export default function Revision() {
   const [answerFeedback, setAnswerFeedback] = useState(null)
   
   const [loading, setLoading] = useState(true)
+  const [selectedWord, setSelectedWord] = useState(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -235,10 +236,14 @@ export default function Revision() {
         {content.vocabulary && Array.isArray(content.vocabulary) && content.vocabulary.length > 0 && (
           <div className="mb-6">
             <h4 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-3">{t('revision.vocabulary')}</h4>
-            <div className="space-y-2">
+            <div className="grid gap-3">
               {content.vocabulary.map((v, i) => (
-                <div key={i} className="bg-white dark:bg-slate-800 p-4 rounded-xl flex justify-between border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all">
-                  <span className="font-bold text-slate-800 dark:text-white">{v.kr || "?"}</span>
+                <div 
+                  key={i} 
+                  onClick={() => setSelectedWord(v)}
+                  className="bg-white dark:bg-slate-800 p-4 rounded-xl flex justify-between items-center border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer active:scale-95 transition-all group"
+                >
+                  <span className="font-bold text-slate-800 dark:text-white group-hover:text-blue-600 transition-colors">{v.kr || "?"}</span>
                   <span className="text-slate-500 dark:text-slate-400 text-sm">{v.fr || "?"}</span>
                 </div>
               ))}
@@ -264,6 +269,49 @@ export default function Revision() {
             )}
           </button>
         </div>
+        
+        {/* --- MODAL DE DÉTAILS DU MOT (DANS VUE DÉTAIL) --- */}
+        {selectedWord && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedWord(null)}>
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-slide-up relative text-left" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setSelectedWord(null)}
+              className="absolute top-6 right-6 w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 font-bold flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700"
+            >
+              ✕
+            </button>
+
+            <div className="text-center mb-6">
+              <h3 className="text-4xl font-black text-slate-800 dark:text-white mb-1">{selectedWord.kr}</h3>
+              <p className="text-blue-500 font-medium italic">{selectedWord.romanization}</p>
+              <p className="text-slate-400 font-bold uppercase text-xs mt-2 tracking-widest">{selectedWord.fr}</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800">
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-1">Détails</span>
+                <p className="text-blue-900 dark:text-blue-100 text-sm leading-relaxed">
+                  {selectedWord.details || "Pas de détails supplémentaires disponibles."}
+                </p>
+              </div>
+
+              {selectedWord.context && (
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Exemple</span>
+                  <p className="text-slate-700 dark:text-slate-300 text-sm font-medium">{selectedWord.context}</p>
+                </div>
+              )}
+            </div>
+            
+            <button 
+              onClick={() => setSelectedWord(null)}
+              className="w-full mt-6 bg-slate-900 dark:bg-slate-700 text-white py-4 rounded-2xl font-bold active:scale-95 transition-all"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
       </div>
     )
   }
@@ -353,6 +401,48 @@ export default function Revision() {
           )) : <p className="text-center text-slate-400 dark:text-slate-500 py-10">{t('revision.no_lessons')}</p>
         )}
       </div>
+      {/* --- MODAL DE DÉTAILS DU MOT --- */}
+      {selectedWord && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedWord(null)}>
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-slide-up relative text-left" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setSelectedWord(null)}
+              className="absolute top-6 right-6 w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 font-bold flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700"
+            >
+              ✕
+            </button>
+
+            <div className="text-center mb-6">
+              <h3 className="text-4xl font-black text-slate-800 dark:text-white mb-1">{selectedWord.kr}</h3>
+              <p className="text-blue-500 font-medium italic">{selectedWord.romanization}</p>
+              <p className="text-slate-400 font-bold uppercase text-xs mt-2 tracking-widest">{selectedWord.fr}</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800">
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-1">Détails</span>
+                <p className="text-blue-900 dark:text-blue-100 text-sm leading-relaxed">
+                  {selectedWord.details || "Pas de détails supplémentaires disponibles."}
+                </p>
+              </div>
+
+              {selectedWord.context && (
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Exemple</span>
+                  <p className="text-slate-700 dark:text-slate-300 text-sm font-medium">{selectedWord.context}</p>
+                </div>
+              )}
+            </div>
+            
+            <button 
+              onClick={() => setSelectedWord(null)}
+              className="w-full mt-6 bg-slate-900 dark:bg-slate-700 text-white py-4 rounded-2xl font-bold active:scale-95 transition-all"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

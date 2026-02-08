@@ -148,6 +148,21 @@ export default function Flashcards() {
                 {currentCard.romanization}
               </span>
             )}
+            
+            {/* BOUTON AUDIO */}
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                const utterance = new SpeechSynthesisUtterance(currentCard.word);
+                utterance.lang = 'ko-KR'; // Hardcodé pour coréen pour l'instant, idéalement dynamique
+                utterance.rate = 0.8;
+                window.speechSynthesis.speak(utterance);
+              }}
+              className="mt-6 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all active:scale-90"
+              title="Écouter"
+            >
+              🔊
+            </button>
           </div>
         </div>
       </div>

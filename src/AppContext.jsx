@@ -10,6 +10,7 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('home')
   const [loading, setLoading] = useState(true)
   const [popup, setPopup] = useState({ message: '', type: 'info', isOpen: false })
+  const [tutorMessages, setTutorMessages] = useState([]) // Persistance des messages du tuteur
 
   const showPopup = (message, type = 'info') => {
     setPopup({ message, type, isOpen: true })
@@ -231,7 +232,9 @@ export function AppProvider({ children }) {
     setActiveTab,
     t, // Export de la fonction de traduction
     showPopup,
-    popup
+    popup,
+    tutorMessages,
+    setTutorMessages
   }
 
   return <AppContext.Provider value={activeTabValue}>{children}</AppContext.Provider>
