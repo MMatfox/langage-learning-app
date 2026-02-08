@@ -40,7 +40,7 @@ function App() {
         <NavButton active={activeTab === 'lessons'} onClick={() => setActiveTab('lessons')} label="Cours" icon="📚" />
         <NavButton active={activeTab === 'words'} onClick={() => setActiveTab('words')} label="Mots" icon="🔤" />
         <NavButton active={activeTab === 'revision'} onClick={() => setActiveTab('revision')} label="Révision" icon="🔁" />
-        <NavButton active={activeTab === 'hangeul'} onClick={() => setActiveTab('hangeul')} label="Coréen" icon="🇰🇷" />
+        <NavButton active={activeTab === 'hangeul'} onClick={() => setActiveTab('hangeul')} label="Hangeul" icon="🇰🇷" />
         <NavButton active={activeTab === 'flashcards'} onClick={() => setActiveTab('flashcards')} label="Flashcards" icon="🃏" />
         <NavButton active={activeTab === 'tutor'} onClick={() => setActiveTab('tutor')} label="Tuteur" icon="👨‍🏫" />
         <NavButton active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} label="Profil" icon="👤" />
