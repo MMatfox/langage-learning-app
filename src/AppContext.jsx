@@ -6,11 +6,11 @@ const AppContext = createContext()
 export function AppProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [languageProfile, setLanguageProfile] = useState({ xp: 0, level: 1 })
+  const [activeTab, setActiveTab] = useState('home')
   const [loading, setLoading] = useState(true)
 
   // Appliquer le thème par défaut au chargement initial
   useEffect(() => {
-    // S'assurer que le thème clair est appliqué par défaut
     document.documentElement.classList.remove('dark')
   }, [])
 
@@ -73,24 +73,46 @@ export function AppProvider({ children }) {
         .select('*')
         .eq('user_id', user.id)
         .eq('language', language)
-        .single()
+        .maybeSingle()
 
-      if (error || !data) {
+      if (error) throw error
+
+      if (!data) {
         // Créer le profil de langue s'il n'existe pas
+        // Utiliser .select().maybeSingle() pour éviter les erreurs si l'insertion échoue ou retourne rien
         const { data: newProfile, error: createError } = await supabase
           .from('language_profiles')
           .insert({ user_id: user.id, language, xp: 0, level: 1 })
           .select()
-          .single()
+          .maybeSingle()
 
-        if (createError) throw createError
-        data = newProfile
+        if (createError) {
+          // Si erreur de duplication (409), on réessaie de lire le profil existant
+          if (createError.code === '23505' || createError.status === 409) {
+             const { data: retryData } = await supabase
+              .from('language_profiles')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('language', language)
+              .maybeSingle()
+              
+              if (retryData) {
+                data = retryData
+              }
+          } else {
+            // Autre erreur réelle
+            console.error("Erreur création profil langue:", createError)
+          }
+        } else {
+          data = newProfile
+        }
       }
 
-      setLanguageProfile(data)
+      setLanguageProfile(data || { xp: 0, level: 1 })
     } catch (err) {
       console.error('Erreur chargement profil de langue:', err)
-      setLanguageProfile({ xp: 0, level: 1 })
+      // Ne pas écraser avec des valeurs par défaut si c'est juste une erreur réseau temporaire
+      // mais si c'est pas critique, on peut laisser tel quel.
     }
   }
 
@@ -174,7 +196,9 @@ export function AppProvider({ children }) {
     updateTargetLanguage,
     addXP,
     refreshProfile: loadProfile,
-    refreshLanguageProfile: () => loadLanguageProfile(profile?.target_language)
+    refreshLanguageProfile: () => loadLanguageProfile(profile?.target_language),
+    activeTab,
+    setActiveTab
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

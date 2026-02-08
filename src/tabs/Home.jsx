@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient'
 import { useApp } from '../AppContext'
 
 export default function Home() {
-  const { profile, languageProfile, loading: profileLoading } = useApp()
+  const { profile, languageProfile, loading: profileLoading, setActiveTab } = useApp()
   const [stats, setStats] = useState({ words: 0, lessons: 0 })
   const [loading, setLoading] = useState(true)
 
@@ -91,12 +91,18 @@ export default function Home() {
 
       {/* Stats rapides */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700">
+        <div 
+          onClick={() => setActiveTab('lessons')}
+          className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700 cursor-pointer active:scale-95 transition-transform hover:border-blue-300 dark:hover:border-slate-600"
+        >
           <div className="text-3xl mb-2">📚</div>
           <p className="text-2xl font-black text-slate-800 dark:text-white">{stats.lessons}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wide">Leçons</p>
         </div>
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700">
+        <div 
+          onClick={() => setActiveTab('words')}
+          className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700 cursor-pointer active:scale-95 transition-transform hover:border-blue-300 dark:hover:border-slate-600"
+        >
           <div className="text-3xl mb-2">🔤</div>
           <p className="text-2xl font-black text-slate-800 dark:text-white">{stats.words}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wide">Mots</p>
@@ -121,17 +127,35 @@ export default function Home() {
         <h3 className="text-slate-700 dark:text-slate-300 font-black text-sm uppercase tracking-widest mb-4">
           Que veux-tu faire ?
         </h3>
-        <ActionCard icon="📖" title="Nouvelle leçon" description="Apprends de nouveaux concepts" />
-        <ActionCard icon="🔁" title="Révision" description="Renforce tes connaissances" />
-        <ActionCard icon="🎯" title="Quiz" description="Teste tes compétences" />
+        <ActionCard 
+          icon="📖" 
+          title="Nouvelle leçon" 
+          description="Apprends de nouveaux concepts" 
+          onClick={() => setActiveTab('lessons')}
+        />
+        <ActionCard 
+          icon="🔁" 
+          title="Révision" 
+          description="Renforce tes connaissances" 
+          onClick={() => setActiveTab('revision')}
+        />
+        <ActionCard 
+          icon="🃏" 
+          title="Flashcards" 
+          description="Teste ta mémoire" 
+          onClick={() => setActiveTab('flashcards')}
+        />
       </div>
     </div>
   )
 }
 
-function ActionCard({ icon, title, description }) {
+function ActionCard({ icon, title, description, onClick }) {
   return (
-    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-md border border-slate-200 dark:border-slate-700 flex items-center gap-4 active:scale-95 transition-transform cursor-pointer hover:shadow-lg">
+    <div 
+      onClick={onClick}
+      className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-md border border-slate-200 dark:border-slate-700 flex items-center gap-4 active:scale-95 transition-transform cursor-pointer hover:shadow-lg hover:border-blue-300 dark:hover:border-slate-600"
+    >
       <div className="text-3xl">{icon}</div>
       <div className="flex-1">
         <h4 className="font-black text-slate-800 dark:text-white text-sm">{title}</h4>

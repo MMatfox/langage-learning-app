@@ -21,7 +21,13 @@ export default function Auth() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { display_name: username } }
+          options: { 
+            data: { 
+              display_name: username,
+              target_language: targetLang,
+              ui_language: 'Français'
+            } 
+          }
         })
         if (error) throw error
 
@@ -65,17 +71,18 @@ export default function Auth() {
               <div className="space-y-2">
                 <label className="text-xs font-black text-slate-400 uppercase ml-2">Je veux apprendre :</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {['Coréen', 'Japonais', 'Anglais', 'Chinois'].map(lang => (
+                  {['Coréen', 'Japonais', 'Chinois'].map(lang => (
                     <button
                       key={lang}
                       type="button"
                       onClick={() => setTargetLang(lang)}
-                      className={`p-3 rounded-xl text-sm font-bold border-2 transition-all ${
+                      className={`p-4 rounded-xl text-sm font-black border-2 transition-all flex items-center justify-center gap-2 ${
                         targetLang === lang 
-                        ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                        : 'border-slate-100 bg-white text-slate-400'
+                        ? 'border-blue-600 bg-blue-600 text-white shadow-lg scale-105' 
+                        : 'border-slate-200 bg-white text-slate-500 hover:border-blue-300 hover:bg-slate-50'
                       }`}
                     >
+                      {targetLang === lang && <span>✓</span>}
                       {lang}
                     </button>
                   ))}

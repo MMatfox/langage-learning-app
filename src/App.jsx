@@ -30,8 +30,7 @@ function App() {
 }
 
 function AppContent() {
-  const { profile } = useApp()
-  const [activeTab, setActiveTab] = useState('home')
+  const { profile, activeTab, setActiveTab } = useApp()
 
   // Forcer l'application du thème à chaque changement
   useEffect(() => {
@@ -44,6 +43,15 @@ function AppContent() {
     }
   }, [profile?.theme])
 
+  // Redirection si on est sur Hangeul mais que la langue change
+  useEffect(() => {
+    if (activeTab === 'hangeul' && profile?.target_language !== 'Coréen') {
+      setActiveTab('home')
+    }
+  }, [profile?.target_language, activeTab, setActiveTab])
+
+  const showHangeul = profile?.target_language === 'Coréen'
+
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden font-sans transition-colors duration-300">
       <div className="flex-1 overflow-y-auto pb-24">
@@ -51,7 +59,7 @@ function AppContent() {
         {activeTab === 'lessons' && <Lessons />}
         {activeTab === 'words' && <Words />}
         {activeTab === 'revision' && <Revision />}
-        {activeTab === 'hangeul' && <Hangeul />}
+        {activeTab === 'hangeul' && showHangeul && <Hangeul />}
         {activeTab === 'tutor' && <Tutor />}
         {activeTab === 'flashcards' && <Flashcards />}
         {activeTab === 'profile' && <Profile />}
@@ -62,7 +70,9 @@ function AppContent() {
         <NavButton active={activeTab === 'lessons'} onClick={() => setActiveTab('lessons')} label="Cours" icon="📚" />
         <NavButton active={activeTab === 'words'} onClick={() => setActiveTab('words')} label="Mots" icon="🔤" />
         <NavButton active={activeTab === 'revision'} onClick={() => setActiveTab('revision')} label="Révision" icon="🔁" />
-        <NavButton active={activeTab === 'hangeul'} onClick={() => setActiveTab('hangeul')} label="Hangeul" icon="🇰🇷" />
+        {showHangeul && (
+          <NavButton active={activeTab === 'hangeul'} onClick={() => setActiveTab('hangeul')} label="Hangeul" icon="🇰🇷" />
+        )}
         <NavButton active={activeTab === 'flashcards'} onClick={() => setActiveTab('flashcards')} label="Flashcards" icon="🃏" />
         <NavButton active={activeTab === 'tutor'} onClick={() => setActiveTab('tutor')} label="Tuteur" icon="👨‍🏫" />
         <NavButton active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} label="Profil" icon="👤" />

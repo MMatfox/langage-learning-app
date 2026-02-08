@@ -12,6 +12,9 @@ export default function Words() {
   
   useEffect(() => {
     if (profile?.target_language) {
+      setLoading(true)
+      setCurrentWord(null)
+      setWords([])
       loadState()
       fetchLearnedWords()
     }
@@ -29,7 +32,7 @@ export default function Words() {
       .eq('mastery_level', 0)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (data) {
       setCurrentWord(data)
@@ -86,7 +89,7 @@ export default function Words() {
         .select('level')
         .eq('user_id', user.id)
         .eq('language', profile.target_language)
-        .single()
+        .maybeSingle()
       
       const aiData = await generateNewWord(excludeList, langProfile?.level || 1)
       

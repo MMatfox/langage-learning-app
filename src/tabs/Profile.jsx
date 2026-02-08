@@ -122,10 +122,10 @@ export default function Profile() {
                   <button
                     key={lang}
                     onClick={() => updateTargetLanguage(lang)}
-                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                    className={`py-3 rounded-xl text-xs font-black border-2 transition-all active:scale-95 shadow-sm ${
                       profile.target_language === lang 
-                      ? 'bg-purple-500 text-white border-purple-500' 
-                      : 'bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300 border-slate-200 text-slate-500'
+                      ? 'bg-purple-600 border-purple-600 text-white ring-4 ring-purple-100 dark:ring-purple-900/30' 
+                      : 'bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300 border-slate-200 text-slate-500 hover:border-purple-300'
                     }`}
                   >
                     {lang}
@@ -137,8 +137,8 @@ export default function Profile() {
         )}
 
         <button 
-          onClick={() => supabase.auth.signOut()} 
-          className="w-full bg-red-500/10 text-red-500 p-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest active:scale-95 transition-all mt-4"
+          onClick={handleLogout} 
+          className="w-full bg-red-500 hover:bg-red-600 text-white p-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest active:scale-95 transition-all mt-6 shadow-xl shadow-red-200 dark:shadow-none"
         >
           Se déconnecter
         </button>

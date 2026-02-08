@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { generateNewLesson } from '../services/aiService'
+import { useApp } from '../AppContext'
 
 export default function Lessons() {
+  const { profile } = useApp()
   const [currentLesson, setCurrentLesson] = useState(null)
   const [loading, setLoading] = useState(true)
   const [quizStarted, setQuizStarted] = useState(false)
@@ -16,6 +18,9 @@ export default function Lessons() {
   // --- CHARGEMENT ---
   useEffect(() => {
     const loadLesson = async () => {
+      if (!profile?.target_language) return
+      setLoading(true)
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
@@ -23,26 +28,32 @@ export default function Lessons() {
         .from('lessons')
         .select('*')
         .eq('user_id', user.id)
+        .eq('language', profile.target_language) // Filtrer par langue cible
         .eq('completed', false)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
-      if (data) setCurrentLesson(data)
+      if (data) {
+        setCurrentLesson(data)
+      } else {
+        setCurrentLesson(null)
+      }
       setLoading(false)
     }
     loadLesson()
-  }, [])
+  }, [profile?.target_language]) // Dépendance sur la langue
 
   // --- GÉNÉRATION ---
   const fetchLesson = async () => {
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
+      if (!user || !profile?.target_language) return
       
-      const { data: allLessons } = await supabase.from('lessons').select('title').eq('user_id', user.id)
+      const { data: allLessons } = await supabase.from('lessons').select('title').eq('user_id', user.id).eq('language', profile.target_language)
       const titles = allLessons?.map(l => l.title) || []
-      const { data: prof } = await supabase.from('profiles').select('level').eq('id', user.id).single()
+      const { data: prof } = await supabase.from('language_profiles').select('level').eq('user_id', user.id).eq('language', profile.target_language).maybeSingle()
       
       const aiContent = await generateNewLesson(titles, prof?.level || 1)
       
@@ -51,13 +62,15 @@ export default function Lessons() {
           user_id: user.id, 
           title: aiContent.title, 
           content: aiContent, 
-          completed: false 
+          completed: false,
+          language: profile.target_language // Enregistrer la langue
         }
       ]).select().single()
 
       if (error) throw error
       
-      // Sauvegarde vocabulaire (Version simplifiée pour la BDD words)
+      // Sauvegarde vocabulaire. La fonction generateNewLesson retourne déjà tout le vocab en BDD words grâce à aiService ? Non, il faut le faire ici.
+      // Sauvegarde vocabulaire
       if (aiContent.vocabulary && aiContent.vocabulary.length > 0) {
         const { data: existingWords } = await supabase.from('learned_words').select('word').eq('user_id', user.id);
         const existingSet = new Set(existingWords?.map(w => w.word));
@@ -70,6 +83,7 @@ export default function Lessons() {
               romanization: v.romanization || '',
               translation: v.fr,
               mastery_level: 0,
+              language: profile.target_language, // IMPORTANT
               // On stocke l'exemple dans la BDD mots aussi
               example_kr: v.context ? v.context.split('(')[0] : `Leçon: ${aiContent.title}`,
               example_fr: v.details || "Voir leçon pour détails"
