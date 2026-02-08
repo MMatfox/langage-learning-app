@@ -4,7 +4,7 @@ import { generateNewWord } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Words() {
-  const { profile, addXP, t } = useApp()
+  const { profile, addXP, t, showPopup } = useApp()
   const [currentWord, setCurrentWord] = useState(null)
   const [words, setWords] = useState([])
   const [loading, setLoading] = useState(true)
@@ -125,7 +125,7 @@ export default function Words() {
 
     } catch (error) {
       console.error("Erreur génération:", error)
-      alert(t('words.ai_error'))
+      showPopup(t('words.ai_error'), 'error')
     } finally {
       setLoading(false)
     }
@@ -134,7 +134,7 @@ export default function Words() {
   const startListening = () => {
     window.speechSynthesis.cancel()
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognition) return alert(t('words.micro_error'))
+    if (!SpeechRecognition) return showPopup(t('words.micro_error'), 'error')
 
     const recognition = new SpeechRecognition()
     // Mapping manuel pour la reconnaissance
@@ -156,10 +156,10 @@ export default function Words() {
       const cleanWord = currentWord.word.replace(/[!?.]/g, '').toLowerCase()
       
       if (cleanTranscript.includes(cleanWord) || cleanWord.includes(cleanTranscript)) { // Tolérance simple
-        alert(t('words.bravo'))
+        showPopup(t('words.bravo'), 'success')
         await validateWord()
       } else {
-        alert(t('words.retry', transcript))
+        showPopup(t('words.retry', transcript), 'info')
       }
     }
     recognition.start()

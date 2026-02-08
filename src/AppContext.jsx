@@ -9,6 +9,14 @@ export function AppProvider({ children }) {
   const [languageProfile, setLanguageProfile] = useState({ xp: 0, level: 1 })
   const [activeTab, setActiveTab] = useState('home')
   const [loading, setLoading] = useState(true)
+  const [popup, setPopup] = useState({ message: '', type: 'info', isOpen: false })
+
+  const showPopup = (message, type = 'info') => {
+    setPopup({ message, type, isOpen: true })
+    setTimeout(() => {
+      setPopup(prev => ({ ...prev, isOpen: false }))
+    }, 3000)
+  }
 
   // Appliquer le thème par défaut au chargement initial
   useEffect(() => {
@@ -221,7 +229,9 @@ export function AppProvider({ children }) {
     refreshLanguageProfile: () => loadLanguageProfile(profile?.target_language),
     activeTab,
     setActiveTab,
-    t // Export de la fonction de traduction
+    t, // Export de la fonction de traduction
+    showPopup,
+    popup
   }
 
   return <AppContext.Provider value={activeTabValue}>{children}</AppContext.Provider>

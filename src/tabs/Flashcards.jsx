@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient'
 import { useApp } from '../AppContext'
 
 export default function Flashcards() {
-  const { profile, addXP, t } = useApp()
+  const { profile, addXP, t, showPopup } = useApp()
   const [cards, setCards] = useState([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
@@ -67,7 +67,7 @@ export default function Flashcards() {
         setCurrentIndex(prev => prev + 1)
       } else {
         await addXP(20)
-        alert(t('flashcards.session_end') + " (+20 XP)")
+        showPopup(t('flashcards.session_end') + " (+20 XP)", "success")
         setCurrentIndex(0)
         fetchCards()
       }

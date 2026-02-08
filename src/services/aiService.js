@@ -72,21 +72,22 @@ export const generateNewLesson = async (completedLessons, userLevel) => {
     ? `Sujets déjà traités : ${completedLessons.join(", ")}.`
     : "Première leçon.";
   
-  const prompt = `Tu es un professeur de ${target}. L'élève parle ${ui}.
+  // ÉTAPE 1 : CONTENU PÉDAGOGIQUE
+  const contentPrompt = `Tu es un professeur de ${target}. L'élève parle ${ui}.
 Crée une leçon complète de niveau ${userLevel}.
 
 ${excludedTopics}
 
 RÈGLES STRICTES :
-1. "explanation": Un texte pédagogique clair en ${ui}.
-2. "vocabulary": Entre 5 et 10 mots/expressions en ${target}.
+1. "explanation": Un texte pédagogique clair, structuré et DÉTAILLÉ en ${ui} (minimum 150 mots).
+2. "vocabulary": Liste de 10 à 15 mots/expressions en ${target} (couvrant tout le contenu).
 3. "details": Explique la grammaire/usage en ${ui}.
-4. "quiz": 3 questions en ${ui} portant sur le ${target}.
+4. NE GÉNÈRE PAS DE QUIZ MAINTENANT.
 
 Réponds UNIQUEMENT avec ce JSON exact :
 {
   "title": "Titre en ${ui}",
-  "explanation": "Explication en ${ui}...",
+  "explanation": "Explication détaillée en ${ui}...",
   "vocabulary": [
     {
       "kr": "mot ${target}", 
@@ -95,39 +96,69 @@ Réponds UNIQUEMENT avec ce JSON exact :
       "details": "Détails usage en ${ui}",
       "context": "Exemple en ${target}"
     }
-  ],
-  "quiz": [
-    {
-      "question": "Question en ${ui}...",
-      "options": ["A", "B", "C"],
-      "answer": "A"
-    }
   ]
 }`;
   
   try {
-    const response = await fetch(BASE_URL, {
+    // Appel 1 : Leçon
+    const responseLesson = await fetch(BASE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
       body: JSON.stringify({
         model: "open-mistral-7b",
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content: contentPrompt }],
+        max_tokens: 4000, // Augmenter token limit
         response_format: { type: "json_object" }
       })
     });
 
-    const data = await response.json();
-    const lessonData = JSON.parse(data.choices[0].message.content);
+    const dataLesson = await responseLesson.json();
+    const lessonData = JSON.parse(dataLesson.choices[0].message.content);
     
-    // Nettoyage
+    // Nettoyage format explication
     if (typeof lessonData.explanation !== 'string') {
       lessonData.explanation = typeof lessonData.explanation === 'object' 
         ? Object.values(lessonData.explanation).join('\n\n') 
         : String(lessonData.explanation);
     }
-    return lessonData;
+
+    // ÉTAPE 2 : QUIZ (10 questions)
+    // On utilise les données générées pour créer le quiz
+    const vocabString = lessonData.vocabulary ? lessonData.vocabulary.map(v => `${v.kr} (${v.fr})`).join(", ") : "Général";
+    const quizPrompt = `
+      Sujet: ${target}. Langue élève: ${ui}.
+      Leçon : "${lessonData.title}".
+      Vocabulaire à tester : ${vocabString}.
+      
+      Génère 10 questions QCM en ${ui}.
+      
+      Réponds UNIQUEMENT avec ce JSON :
+      [{"question": "...", "options": ["Choix 1", "Choix 2", "Choix 3"], "answer": "Choix 1"}, ...]
+      IMPORTANT: "answer" doit être la chaîne de caractères exacte de la bonne réponse dans "options".
+      Mélange aléatoirement la position de la bonne réponse.
+    `;
+
+    const responseQuiz = await fetch(BASE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+      body: JSON.stringify({
+        model: "open-mistral-7b",
+        messages: [{ role: "user", content: quizPrompt }],
+        max_tokens: 4000,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    const dataQuiz = await responseQuiz.json();
+    const rawQuiz = JSON.parse(dataQuiz.choices[0].message.content);
+    // Gestion format { quiz: [...] } ou [...] 
+    const quizContent = Array.isArray(rawQuiz) ? rawQuiz : (rawQuiz.quiz || rawQuiz.questions || []);
+
+    // FUSION
+    return { ...lessonData, quiz: quizContent };
+
   } catch (error) {
-    console.error("Erreur Mistral Lesson:", error);
+    console.error("Erreur Mistral Lesson (Step mode):", error);
     throw error;
   }
 };
@@ -167,8 +198,8 @@ export const chatWithTutor = async (history, message) => {
   }
 };
 
-// 4. QUIZ DE RÉVISION
-export const generateRevisionQuiz = async (lessonTitle, vocabulary) => {
+// 4. QUIZ DE RÉVISION (ou retry leçon)
+export const generateRevisionQuiz = async (lessonTitle, vocabulary, count = 3) => {
   const { target, ui } = await getUserPreferences();
   const vocabString = vocabulary ? vocabulary.map(v => `${v.kr} (${v.fr})`).join(", ") : "Général";
 
@@ -176,10 +207,12 @@ export const generateRevisionQuiz = async (lessonTitle, vocabulary) => {
     Sujet: ${target}. Langue élève: ${ui}.
     Leçon : "${lessonTitle}". Vocabulaire : ${vocabString}.
     
-    Génère 3 questions QCM en ${ui} pour tester la compréhension de ce vocabulaire ${target}.
+    Génère ${count} questions QCM en ${ui} pour tester la compréhension de ce vocabulaire ${target}.
     
     Réponds UNIQUEMENT avec ce JSON :
-    [{"question": "...", "options": ["A", "B", "C"], "answer": "A"}, ...]
+    [{"question": "...", "options": ["Choix 1", "Choix 2", "Choix 3"], "answer": "Choix 1"}, ...]
+    IMPORTANT: "answer" doit être la chaîne de caractères exacte de la bonne réponse dans "options".
+    Mélange aléatoirement la position de la bonne réponse.
   `;
 
   try {

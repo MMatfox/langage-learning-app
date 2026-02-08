@@ -5,6 +5,7 @@ import Auth from './Auth'
 import Home from './tabs/Home'
 import Lessons from './tabs/Lessons'
 import Words from './tabs/Words'
+import Popup from './Popup'
 import Revision from './tabs/Revision'
 import Hangeul from './tabs/Hangeul'
 import Profile from './tabs/Profile'
@@ -54,6 +55,7 @@ function AppContent() {
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden font-sans transition-colors duration-300">
+      <Popup />
       <div className="flex-1 overflow-y-auto pb-24">
         {activeTab === 'home' && <Home />}
         {activeTab === 'lessons' && <Lessons />}

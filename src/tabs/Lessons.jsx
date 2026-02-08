@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
-import { generateNewLesson } from '../services/aiService'
+import { generateNewLesson, generateRevisionQuiz } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Lessons() {
-  const { profile, t } = useApp()
+  const { profile, t, showPopup, addXP } = useApp()
   const [currentLesson, setCurrentLesson] = useState(null)
   const [loading, setLoading] = useState(true)
   const [quizStarted, setQuizStarted] = useState(false)
   const [selectedAnswer, setSelectedAnswer] = useState(null)
   const [quizFeedback, setQuizFeedback] = useState(null)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [score, setScore] = useState(0)
   
   // NOUVEAU : État pour le mot sélectionné (popup)
   const [selectedWord, setSelectedWord] = useState(null)
+  const [regeneratingQuiz, setRegeneratingQuiz] = useState(false)
 
   // --- CHARGEMENT ---
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function Lessons() {
       setLoading(false)
     }
     loadLesson()
-  }, [profile?.target_language]) // Dépendance sur la langue
+  }, [profile?.target_language])
 
   // --- GÉNÉRATION ---
   const fetchLesson = async () => {
@@ -63,13 +65,12 @@ export default function Lessons() {
           title: aiContent.title, 
           content: aiContent, 
           completed: false,
-          language: profile.target_language // Enregistrer la langue
+          language: profile.target_language
         }
       ]).select().single()
 
       if (error) throw error
       
-      // Sauvegarde vocabulaire. La fonction generateNewLesson retourne déjà tout le vocab en BDD words grâce à aiService ? Non, il faut le faire ici.
       // Sauvegarde vocabulaire
       if (aiContent.vocabulary && aiContent.vocabulary.length > 0) {
         const { data: existingWords } = await supabase.from('learned_words').select('word').eq('user_id', user.id);
@@ -83,8 +84,7 @@ export default function Lessons() {
               romanization: v.romanization || '',
               translation: v.fr,
               mastery_level: 0,
-              language: profile.target_language, // IMPORTANT
-              // On stocke l'exemple dans la BDD mots aussi
+              language: profile.target_language,
               example_kr: v.context ? v.context.split('(')[0] : `Leçon: ${aiContent.title}`,
               example_fr: v.details || "Voir leçon pour détails"
             }));
@@ -97,10 +97,11 @@ export default function Lessons() {
       setQuizFeedback(null)
       setSelectedAnswer(null)
       setCurrentQuestionIndex(0)
+      setScore(0)
 
     } catch (error) {
       console.error("Erreur leçon:", error)
-      alert("Erreur lors de la génération. Réessaie.")
+      showPopup("Erreur lors de la génération. Réessaie.", "error")
     } finally {
       setLoading(false)
     }
@@ -111,7 +112,32 @@ export default function Lessons() {
     if (quizFeedback) return
     setSelectedAnswer(option)
     const currentQ = currentLesson.content.quiz[currentQuestionIndex]
-    setQuizFeedback(option === currentQ.answer ? "correct" : "wrong")
+    
+    // Normalisation pour comparaison
+    const cleanOption = typeof option === 'string' ? option.trim() : option
+    const cleanAnswer = typeof currentQ.answer === 'string' ? currentQ.answer.trim() : currentQ.answer
+
+    let isCorrect = cleanOption === cleanAnswer;
+
+    // Fallback pour compatibilité avec anciennes leçons
+    if (!isCorrect && typeof cleanAnswer === 'string' && cleanAnswer.length === 1) {
+        const index = currentQ.options.findIndex(o => o === option);
+        const upperAnswer = cleanAnswer.toUpperCase();
+        
+        if (upperAnswer === 'A' && index === 0) isCorrect = true;
+        else if (upperAnswer === 'B' && index === 1) isCorrect = true;
+        else if (upperAnswer === 'C' && index === 2) isCorrect = true;
+        else if (upperAnswer === '0' && index === 0) isCorrect = true;
+        else if (upperAnswer === '1' && index === 1) isCorrect = true;
+        else if (upperAnswer === '2' && index === 2) isCorrect = true;
+    }
+
+    if (isCorrect) {
+        setQuizFeedback("correct")
+        setScore(prev => prev + 1)
+    } else {
+        setQuizFeedback("wrong")
+    }
   }
 
   const nextQuestion = () => {
@@ -121,16 +147,55 @@ export default function Lessons() {
       setQuizFeedback(null)
       setSelectedAnswer(null)
     } else {
-      completeLesson()
+      finishQuiz()
     }
   }
 
-  const completeLesson = async () => {
-    const { error } = await supabase.from('lessons').update({ completed: true }).eq('id', currentLesson.id)
-    if (!error) {
-      await supabase.rpc('add_xp', { amount: 50 })
-      alert("Leçon terminée ! +50 XP 🎓")
-      setCurrentLesson(null) 
+  const finishQuiz = async () => {
+    // Validation : Il faut 8/10 (ou 80% si le nombre de questions change)
+    const quizLength = currentLesson.content.quiz.length
+    const threshold = Math.ceil(quizLength * 0.8) // 80% requis
+
+    if (score >= threshold) {
+        // SUCCÈS
+        const { error } = await supabase.from('lessons').update({ completed: true }).eq('id', currentLesson.id)
+        if (!error) {
+            const xpEarned = 50 + (score * 2);
+            await addXP(xpEarned) // Utiliser le contexte pour update UI
+            showPopup(`Leçon validée ! ${score}/${quizLength} (+${xpEarned} XP) 🎓`, "success")
+            setCurrentLesson(null) 
+        }
+    } else {
+        // ÉCHEC -> Regénération
+        showPopup(`Score insuffisant (${score}/${quizLength}). Il faut ${threshold}/${quizLength}. Nouveau quiz en approche...`, "info")
+        setRegeneratingQuiz(true)
+        
+        try {
+            const newQuiz = await generateRevisionQuiz(currentLesson.content.title, currentLesson.content.vocabulary, 10)
+            
+            // Mise à jour locale (et optionnellement BDD si on voulait persister le nouveau quiz, mais pas strictement nécessaire pour le flux)
+            // On met à jour le contenu de la leçon en mémoire
+            const newContent = { ...currentLesson.content, quiz: newQuiz }
+            
+            // On met à jour en base pour que si l'utilisateur quitte, il ait le nouveau quiz ?
+            // C'est mieux pour l'expérience utilisateur.
+            await supabase.from('lessons').update({ content: newContent }).eq('id', currentLesson.id)
+
+            setCurrentLesson({ ...currentLesson, content: newContent })
+            
+            // Reset state
+            setCurrentQuestionIndex(0)
+            setScore(0)
+            setQuizFeedback(null)
+            setSelectedAnswer(null)
+            showPopup("Nouveau quiz prêt ! Bonne chance.", "success")
+            
+        } catch (e) {
+            console.error(e)
+            showPopup("Erreur lors de la régénération du quiz.", "error")
+        } finally {
+            setRegeneratingQuiz(false)
+        }
     }
   }
 
@@ -235,8 +300,10 @@ export default function Lessons() {
                     onClick={() => handleAnswer(opt)}
                     className={`w-full p-4 rounded-2xl font-bold text-left transition-all border-2 ${
                       selectedAnswer === opt 
-                        ? (quizFeedback === 'correct' ? 'border-green-500 bg-green-50 text-green-700' : 'border-red-500 bg-red-50 text-red-700')
-                        : 'border-slate-100 bg-slate-50 text-slate-600 active:border-blue-400'
+                        ? (quizFeedback === 'correct' 
+                            ? 'border-green-600 bg-green-500 text-white shadow-lg shadow-green-200 scale-105' 
+                            : 'border-red-600 bg-red-500 text-white shadow-lg shadow-red-200 shake')
+                        : 'border-slate-100 bg-slate-50 text-slate-600 hover:bg-white hover:shadow-md hover:border-blue-200 active:scale-95'
                     }`}
                   >
                     {opt}

@@ -4,7 +4,7 @@ import { generateRevisionQuiz } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Revision() {
-  const { profile, addXP, t } = useApp()
+  const { profile, addXP, t, showPopup } = useApp()
   const [activeTab, setActiveTab] = useState('words')
   
   const [words, setWords] = useState([])
@@ -44,10 +44,11 @@ export default function Revision() {
         setWords(data || [])
       } else {
         const { data } = await supabase
-          .from('completed_lessons')
+          .from('lessons')
           .select('*')
           .eq('user_id', user.id)
           .eq('language', profile.target_language)
+          .eq('completed', true)
           .order('created_at', { ascending: false })
           
         setLessons(data || [])
@@ -81,7 +82,7 @@ export default function Revision() {
       setSelectedAnswer(null)
       setAnswerFeedback(null)
     } catch (error) {
-      alert("Impossible de générer le quiz pour le moment.")
+      showPopup("Impossible de générer le quiz pour le moment.", "error")
       console.error("Erreur génération quiz:", error)
     } finally {
       setQuizLoading(false)
@@ -94,7 +95,26 @@ export default function Revision() {
     setSelectedAnswer(option)
     const currentQuestion = revisionQuiz[currentQIndex]
     
-    if (option === currentQuestion.answer) {
+    // Normalisation pour comparaison
+    const cleanOption = typeof option === 'string' ? option.trim() : option
+    const cleanAnswer = typeof currentQuestion.answer === 'string' ? currentQuestion.answer.trim() : currentQuestion.answer
+
+    let isCorrect = cleanOption === cleanAnswer;
+
+    // Fallback pour compatibilité avec anciennes leçons
+    if (!isCorrect && typeof cleanAnswer === 'string' && cleanAnswer.length === 1) {
+        const index = currentQuestion.options.findIndex(o => o === option);
+        const upperAnswer = cleanAnswer.toUpperCase();
+        
+        if (upperAnswer === 'A' && index === 0) isCorrect = true;
+        else if (upperAnswer === 'B' && index === 1) isCorrect = true;
+        else if (upperAnswer === 'C' && index === 2) isCorrect = true;
+        else if (upperAnswer === '0' && index === 0) isCorrect = true;
+        else if (upperAnswer === '1' && index === 1) isCorrect = true;
+        else if (upperAnswer === '2' && index === 2) isCorrect = true;
+    }
+    
+    if (isCorrect) {
       setAnswerFeedback('correct')
       setQuizScore(prev => prev + 1)
     } else {
@@ -151,9 +171,9 @@ export default function Revision() {
                   className={`w-full p-4 rounded-2xl font-bold text-left transition-all border-2 ${
                     selectedAnswer === opt
                       ? (answerFeedback === 'correct' 
-                          ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
-                          : 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400')
-                      : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-blue-400 dark:hover:border-blue-500 active:scale-95'
+                          ? 'border-green-600 bg-green-500 text-white shadow-lg shadow-green-200 scale-105' 
+                          : 'border-red-600 bg-red-500 text-white shadow-lg shadow-red-200 shake')
+                      : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:shadow-md hover:border-blue-300 active:scale-95'
                   }`}
                 >
                   {opt}

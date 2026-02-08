@@ -3,7 +3,7 @@ import { chatWithTutor } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Tutor() {
-  const { profile, t } = useApp()
+  const { profile, t, showPopup } = useApp()
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -57,7 +57,7 @@ export default function Tutor() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     
     if (!SpeechRecognition) {
-      alert(t('tutor.speech_error'))
+      showPopup(t('tutor.speech_error'), 'error')
       return
     }
 
@@ -70,7 +70,7 @@ export default function Tutor() {
     recognition.onerror = (e) => {
       console.error("Micro Error:", e.error)
       setIsListening(false)
-      if (e.error === 'not-allowed') alert(t('tutor.micro_permission'))
+      if (e.error === 'not-allowed') showPopup(t('tutor.micro_permission'), 'error')
     }
 
     recognition.onend = () => setIsListening(false)
