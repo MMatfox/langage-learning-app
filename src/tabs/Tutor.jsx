@@ -3,7 +3,7 @@ import { chatWithTutor } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Tutor() {
-  const { profile } = useApp()
+  const { profile, t } = useApp()
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -12,20 +12,21 @@ export default function Tutor() {
 
   // Configuration par langue
   const tutorConfig = {
-    'Coréen': { name: 'Ji-min', langCode: 'ko-KR', hello: '안녕하세요! Je suis Ji-min, ton tuteur de coréen.' },
-    'Japonais': { name: 'Yuki', langCode: 'ja-JP', hello: 'こんにちは! Je suis Yuki, ton tuteur de japonais.' },
-    'Chinois': { name: 'Wei', langCode: 'zh-CN', hello: '你好! Je suis Wei, ton tuteur de chinois.' },
-    'defaut': { name: 'Tuteur', langCode: 'fr-FR', hello: 'Bonjour ! Je suis ton tuteur.' }
+    'Coréen': { name: 'Ji-min', langCode: 'ko-KR', helloKey: 'intro_ko' },
+    'Japonais': { name: 'Yuki', langCode: 'ja-JP', helloKey: 'intro_jp' },
+    'Chinois': { name: 'Wei', langCode: 'zh-CN', helloKey: 'intro_zh' },
+    'defaut': { name: 'Tuteur', langCode: 'fr-FR', helloKey: 'intro_default' }
   }
 
   const currentConfig = tutorConfig[profile?.target_language] || tutorConfig['defaut']
 
   useEffect(() => {
     // Initialiser le message d'accueil si vide
+    // On utilise t() pour traduire le message
     if (messages.length === 0) {
-      setMessages([{ role: 'model', text: currentConfig.hello }])
+      setMessages([{ role: 'model', text: t(`tutor.${currentConfig.helloKey}`) }])
     }
-  }, [profile?.target_language])
+  }, [profile?.target_language, t])
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -41,11 +42,7 @@ export default function Tutor() {
     const targetVoice = voices.find(v => v.lang.includes(currentConfig.langCode.split('-')[0]));
     const frVoice = voices.find(v => v.lang.includes('fr'));
 
-    // Détection basique pour savoir si on change de langue (pour le chinois/japonais c'est plus dur à regex que le Hangeul)
-    // Pour simplifier, on utilise la voix cible par défaut si le texte n'est pas français
-    // ... (Logique complexe omise pour simplifier, on lit tout avec la voix cible ou FR si échec)
-    
-    if (targetVoice) { // Amélioration possible: détecter la langue du segment
+    if (targetVoice) { 
        utterance.voice = targetVoice; 
        utterance.lang = currentConfig.langCode;
     } else if (frVoice) {
@@ -60,7 +57,7 @@ export default function Tutor() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     
     if (!SpeechRecognition) {
-      alert("La reconnaissance vocale n'est pas supportée sur ce navigateur.")
+      alert(t('tutor.speech_error'))
       return
     }
 
@@ -73,7 +70,7 @@ export default function Tutor() {
     recognition.onerror = (e) => {
       console.error("Micro Error:", e.error)
       setIsListening(false)
-      if (e.error === 'not-allowed') alert("Active le micro dans tes réglages !")
+      if (e.error === 'not-allowed') alert(t('tutor.micro_permission'))
     }
 
     recognition.onend = () => setIsListening(false)
@@ -111,7 +108,7 @@ export default function Tutor() {
       
     } catch (error) {
       console.error("Erreur Chat:", error)
-      setMessages(prev => [...prev, { role: 'model', text: "Désolé, j'ai une petite coupure de micro. Peux-tu répéter ?" }])
+      setMessages(prev => [...prev, { role: 'model', text: t('tutor.network_error') }])
     } finally {
       setLoading(false)
     }
@@ -126,7 +123,7 @@ export default function Tutor() {
             <h3 className="font-black text-slate-800 text-lg">{currentConfig.name}</h3>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">En ligne</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t('tutor.online')}</p>
             </div>
           </div>
         </div>
@@ -169,7 +166,7 @@ export default function Tutor() {
           </button>
           <input 
             className="flex-1 bg-transparent py-2 px-1 text-sm focus:outline-none"
-            placeholder="Écris en coréen..."
+            placeholder={t('tutor.placeholder', profile.target_language)}
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />

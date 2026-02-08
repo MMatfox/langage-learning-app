@@ -4,7 +4,7 @@ import { generateRevisionQuiz } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Revision() {
-  const { profile, addXP } = useApp()
+  const { profile, addXP, t } = useApp()
   const [activeTab, setActiveTab] = useState('words')
   
   const [words, setWords] = useState([])
@@ -127,16 +127,16 @@ export default function Revision() {
     return (
       <div className="p-6 pb-28 max-w-md mx-auto">
         <button onClick={closeQuiz} className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-bold mb-6 text-xs uppercase tracking-widest">
-          ← Quitter le quiz
+          {t('revision.quit_quiz')}
         </button>
 
         {!quizFinished ? (
           <div className="bg-white dark:bg-slate-800 p-8 rounded-[3rem] shadow-xl border border-slate-200 dark:border-slate-700">
             <div className="flex justify-between items-center mb-6">
               <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                Question {currentQIndex + 1} / {revisionQuiz.length}
+                {t('revision.question_count', currentQIndex + 1, revisionQuiz.length)}
               </span>
-              <span className="text-slate-300 dark:text-slate-600 font-bold text-xs">XP ++</span>
+              <span className="text-slate-300 dark:text-slate-600 font-bold text-xs">{t('revision.xp_plus')}</span>
             </div>
             
             <h3 className="text-xl font-black text-slate-800 dark:text-white mb-8 text-center leading-snug">
@@ -164,18 +164,18 @@ export default function Revision() {
         ) : (
           <div className="bg-white dark:bg-slate-800 p-10 rounded-[3rem] shadow-xl border border-slate-200 dark:border-slate-700 text-center">
             <div className="text-6xl mb-4">🏆</div>
-            <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-2">Révision terminée !</h3>
+            <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-2">{t('revision.finished')}</h3>
             <p className="text-slate-500 dark:text-slate-400 mb-6">
-              Score : <span className="text-blue-600 dark:text-blue-400 font-bold">{quizScore} / {revisionQuiz.length}</span>
+              {t('revision.score')} <span className="text-blue-600 dark:text-blue-400 font-bold">{quizScore} / {revisionQuiz.length}</span>
             </p>
             <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 p-4 rounded-2xl font-bold mb-8 text-sm">
-              +20 XP gagnés
+              {t('revision.xp_gained', 20)}
             </div>
             <button 
               onClick={closeQuiz}
               className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white py-4 rounded-2xl font-bold active:scale-95 transition-all"
             >
-              Retour à la leçon
+              {t('revision.back_lesson')}
             </button>
           </div>
         )}
@@ -194,19 +194,19 @@ export default function Revision() {
           onClick={() => setSelectedLesson(null)} 
           className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold mb-4 flex items-center gap-2"
         >
-          ← Retour aux révisions
+          {t('revision.back')}
         </button>
         
         <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-lg border border-slate-200 dark:border-slate-700 mb-6">
           <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-4">
-            {content.title || "Leçon"}
+            {content.title || t('revision.untitled')}
           </h3>
           <div className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed space-y-2">
             {content.explanation && (
               <p className="italic border-l-4 border-blue-400 dark:border-blue-500 pl-4 py-2 bg-blue-50 dark:bg-blue-900/10 rounded-r-lg">
                 {typeof content.explanation === 'string' 
                   ? content.explanation 
-                  : "Explication disponible en mode lecture."}
+                  : t('revision.explanation_placeholder')}
               </p>
             )}
           </div>
@@ -214,7 +214,7 @@ export default function Revision() {
 
         {content.vocabulary && Array.isArray(content.vocabulary) && content.vocabulary.length > 0 && (
           <div className="mb-6">
-            <h4 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-3">Vocabulaire</h4>
+            <h4 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-3">{t('revision.vocabulary')}</h4>
             <div className="space-y-2">
               {content.vocabulary.map((v, i) => (
                 <div key={i} className="bg-white dark:bg-slate-800 p-4 rounded-xl flex justify-between border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all">
@@ -228,7 +228,7 @@ export default function Revision() {
 
         <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
           <p className="text-center text-slate-400 dark:text-slate-500 text-xs font-bold uppercase mb-4 tracking-widest">
-            Besoin de pratiquer ?
+            {t('revision.need_practice')}
           </p>
           <button 
             onClick={startRevisionQuiz}
@@ -236,10 +236,10 @@ export default function Revision() {
             className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {quizLoading ? (
-              <span className="animate-pulse">Génération du quiz...</span>
+              <span className="animate-pulse">{t('revision.gen_quiz')}</span>
             ) : (
               <>
-                <span>🚀</span> Lancer un Quiz Express
+                <span>🚀</span> {t('revision.start_quiz')}
               </>
             )}
           </button>
@@ -252,7 +252,7 @@ export default function Revision() {
   return (
     <div className="p-6 pb-28 max-w-md mx-auto">
       <header className="pt-8 mb-6">
-        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Révisions</h2>
+        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('revision.title')}</h2>
         
         <div className="flex bg-slate-200 dark:bg-slate-700 p-1 rounded-2xl mt-4">
           <button 
@@ -261,7 +261,7 @@ export default function Revision() {
               activeTab === 'words' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'
             }`}
           >
-            Mots
+            {t('revision.words')}
           </button>
           <button 
             onClick={() => setActiveTab('lessons')} 
@@ -269,7 +269,7 @@ export default function Revision() {
               activeTab === 'lessons' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'
             }`}
           >
-            Leçons
+            {t('revision.lessons')}
           </button>
         </div>
 
@@ -281,7 +281,7 @@ export default function Revision() {
                 filterWord === 'all' ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-blue-400 dark:hover:border-blue-500'
               }`}
             >
-              Tous
+              {t('revision.all')}
             </button>
             <button 
               onClick={() => setFilterWord('weak')} 
@@ -289,7 +289,7 @@ export default function Revision() {
                 filterWord === 'weak' ? 'bg-red-500 text-white border-red-500' : 'border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-red-400 dark:hover:border-red-500'
               }`}
             >
-              À revoir
+              {t('revision.weak')}
             </button>
           </div>
         )}
@@ -297,7 +297,7 @@ export default function Revision() {
 
       <div className="space-y-4">
         {loading ? (
-          <div className="text-center py-10 text-slate-400 dark:text-slate-500 animate-pulse">Chargement...</div>
+          <div className="text-center py-10 text-slate-400 dark:text-slate-500 animate-pulse">{t('revision.loading')}</div>
         ) : activeTab === 'words' ? (
           words.length > 0 ? words.map(word => (
             <div key={word.id} className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-xl transition-all">
@@ -315,7 +315,7 @@ export default function Revision() {
                 {word.mastery_level >= 100 ? '✅' : '🔥'}
               </button>
             </div>
-          )) : <p className="text-center text-slate-400 dark:text-slate-500 py-10">Aucun mot appris.</p>
+          )) : <p className="text-center text-slate-400 dark:text-slate-500 py-10">{t('revision.no_words')}</p>
         ) : (
           lessons.length > 0 ? lessons.map(l => (
             <div 
@@ -324,13 +324,13 @@ export default function Revision() {
               className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700 cursor-pointer active:scale-95 transition-all group hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-600"
             >
               <h4 className="text-lg font-black text-slate-800 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                {l.title || "Leçon sans titre"}
+                {l.title || t('revision.untitled')}
               </h4>
               <p className="text-slate-400 dark:text-slate-500 text-xs">
-                Complétée le {new Date(l.created_at).toLocaleDateString()}
+                {t('revision.completed_at')} {new Date(l.created_at).toLocaleDateString()}
               </p>
             </div>
-          )) : <p className="text-center text-slate-400 dark:text-slate-500 py-10">Aucune leçon terminée.</p>
+          )) : <p className="text-center text-slate-400 dark:text-slate-500 py-10">{t('revision.no_lessons')}</p>
         )}
       </div>
     </div>

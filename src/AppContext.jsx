@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
+import { translations } from './translations'
 
 const AppContext = createContext()
 
@@ -187,7 +188,28 @@ export function AppProvider({ children }) {
     }
   }
 
-  const value = {
+  // Fonction de traduction
+  const t = (path, ...args) => {
+    // Langue par défaut : Français
+    const lang = profile?.ui_language || 'Français'
+    const dict = translations[lang] || translations['Français']
+    
+    // Récupération de la valeur imbriquée (ex: 'nav.home')
+    const keys = path.split('.')
+    let value = dict
+    for (const k of keys) {
+      value = value?.[k]
+    }
+
+    // Gestion des fonctions (ex: message avec paramètre)
+    if (typeof value === 'function') {
+      return value(...args)
+    }
+
+    return value || path // Retourne la clé si pas trouvé
+  }
+
+  const activeTabValue = {
     profile,
     languageProfile,
     loading,
@@ -198,10 +220,11 @@ export function AppProvider({ children }) {
     refreshProfile: loadProfile,
     refreshLanguageProfile: () => loadLanguageProfile(profile?.target_language),
     activeTab,
-    setActiveTab
+    setActiveTab,
+    t // Export de la fonction de traduction
   }
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>
+  return <AppContext.Provider value={activeTabValue}>{children}</AppContext.Provider>
 }
 
 export function useApp() {

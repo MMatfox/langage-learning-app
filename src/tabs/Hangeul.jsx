@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useApp } from '../AppContext'
 
 const HANGEUL_DATA = {
   consonants: [
@@ -43,6 +44,7 @@ function HangeulSection({ title, data, selected, onSelect }) {
 }
 
 export default function Hangeul() {
+  const { t } = useApp()
   const [selected, setSelected] = useState(null)
 
   const playSound = (char) => {
@@ -67,16 +69,16 @@ export default function Hangeul() {
   return (
     <div className="p-6 pb-32 max-w-md mx-auto">
       <header className="text-center mb-8 pt-8">
-        <h2 className="text-3xl font-black text-slate-800">Hangeul</h2>
-        <p className="text-slate-400 text-sm">Appuie pour écouter.</p>
+        <h2 className="text-3xl font-black text-slate-800">{t('hangeul.title')}</h2>
+        <p className="text-slate-400 text-sm">{t('hangeul.tap_to_listen')}</p>
       </header>
-      <HangeulSection title="Consonnes" data={HANGEUL_DATA.consonants} selected={selected} onSelect={playSound} />
-      <HangeulSection title="Voyelles" data={HANGEUL_DATA.vowels} selected={selected} onSelect={playSound} />
-      <HangeulSection title="Consonnes Doubles" data={HANGEUL_DATA.doubles} selected={selected} onSelect={playSound} />
+      <HangeulSection title={t('hangeul.consonants')} data={HANGEUL_DATA.consonants} selected={selected} onSelect={playSound} />
+      <HangeulSection title={t('hangeul.vowels')} data={HANGEUL_DATA.vowels} selected={selected} onSelect={playSound} />
+      <HangeulSection title={t('hangeul.double_consonants')} data={HANGEUL_DATA.doubles} selected={selected} onSelect={playSound} />
       {selected && (
         <div className="fixed bottom-24 left-6 right-6 bg-blue-600 text-white p-4 rounded-2xl shadow-2xl flex justify-between items-center animate-bounce-in">
           <div>
-            <span className="text-xs opacity-80 font-bold uppercase">Son :</span>
+            <span className="text-xs opacity-80 font-bold uppercase">{t('hangeul.sound')}</span>
             <p className="font-bold text-lg leading-tight uppercase">"{getSelectedSound()}"</p>
           </div>
           <span className="text-4xl font-black">{selected}</span>

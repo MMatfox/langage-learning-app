@@ -4,7 +4,7 @@ import { generateNewLesson } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Lessons() {
-  const { profile } = useApp()
+  const { profile, t } = useApp()
   const [currentLesson, setCurrentLesson] = useState(null)
   const [loading, setLoading] = useState(true)
   const [quizStarted, setQuizStarted] = useState(false)
@@ -163,20 +163,20 @@ export default function Lessons() {
   return (
     <div className="p-6 pb-28 max-w-md mx-auto relative">
       <header className="pt-8 mb-8 text-center">
-        <h2 className="text-3xl font-black text-slate-800 tracking-tight">Cours IA</h2>
-        <p className="text-slate-500 text-sm font-medium">Programme détaillé & personnalisé.</p>
+        <h2 className="text-3xl font-black text-slate-800 tracking-tight">{t('lessons.title')}</h2>
+        <p className="text-slate-500 text-sm font-medium">{t('lessons.subtitle')}</p>
       </header>
 
       {!currentLesson ? (
         <div className="bg-white p-10 rounded-[3rem] shadow-xl shadow-slate-200/50 text-center border border-slate-100 flex flex-col items-center animate-fade-in">
           <div className="text-6xl mb-6 text-blue-600">📖</div>
-          <h3 className="text-xl font-bold text-slate-800 mb-2">Prêt pour ton cours ?</h3>
+          <h3 className="text-xl font-bold text-slate-800 mb-2">{t('lessons.ready_title')}</h3>
           {!loading && (
              <button onClick={fetchLesson} disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-blue-200 active:scale-95 transition-all mt-6">
-              GÉNÉRER MON COURS
+              {t('lessons.generate')}
             </button>
           )}
-           {loading && <p className="text-blue-500 font-bold mt-4 animate-pulse">Rédaction en cours...</p>}
+           {loading && <p className="text-blue-500 font-bold mt-4 animate-pulse">{t('lessons.generating')}</p>}
         </div>
       ) : (
         <div className="space-y-6 animate-fade-in">
@@ -184,7 +184,7 @@ export default function Lessons() {
             <>
               {/* THÉORIE */}
               <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
-                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">Théorie</span>
+                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">{t('lessons.theory')}</span>
                 <h3 className="text-2xl font-black text-slate-800 mt-3 mb-4">{lessonData.title}</h3>
                 <div className="mt-4">
                   {renderSafeContent(lessonData.explanation)}
@@ -194,7 +194,7 @@ export default function Lessons() {
               {/* VOCABULAIRE INTERACTIF */}
               <div className="grid gap-3">
                 <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest ml-2">
-                  Vocabulaire (Touche pour infos)
+                  {t('lessons.vocabulary_title')}
                 </h4>
                 {Array.isArray(lessonData.vocabulary) && lessonData.vocabulary.map((v, i) => (
                   <div 
@@ -216,14 +216,14 @@ export default function Lessons() {
               </div>
 
               <button onClick={() => setQuizStarted(true)} className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black shadow-xl active:scale-95 transition-all uppercase tracking-wider">
-                Passer au Quiz ⚡️
+                {t('lessons.start_quiz')}
               </button>
             </>
           ) : (
             /* QUIZ */
             <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 animate-slide-up">
               <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest bg-purple-50 px-3 py-1 rounded-full">
-                Question {currentQuestionIndex + 1} / {lessonData.quiz.length}
+                {t('lessons.question_count', currentQuestionIndex + 1, lessonData.quiz.length)}
               </span>
               <h3 className="text-xl font-black text-slate-800 mt-6 mb-8 text-center leading-snug">
                 {lessonData.quiz[currentQuestionIndex].question}
@@ -245,24 +245,24 @@ export default function Lessons() {
               </div>
               {quizFeedback === 'correct' && (
                 <button onClick={nextQuestion} className="w-full mt-8 bg-green-500 text-white py-5 rounded-2xl font-black shadow-lg shadow-green-200 animate-bounce">
-                  {currentQuestionIndex < lessonData.quiz.length - 1 ? "SUIVANT →" : "TERMINER 🎓"}
+                  {currentQuestionIndex < lessonData.quiz.length - 1 ? t('lessons.next') : t('lessons.finish')}
                 </button>
               )}
               {quizFeedback === 'wrong' && (
                 <button onClick={() => {setQuizFeedback(null); setSelectedAnswer(null);}} className="w-full mt-4 text-slate-400 text-xs font-bold underline">
-                  Réessayer
+                  {t('lessons.retry')}
                 </button>
               )}
             </div>
           )}
           
           <button onClick={async () => {
-            if(confirm('Supprimer cette leçon ?')) {
+            if(confirm(t('lessons.confirm_delete'))) {
               await supabase.from('lessons').delete().eq('id', currentLesson.id)
               setCurrentLesson(null)
             }
           }} className="w-full text-slate-300 text-[10px] font-bold uppercase tracking-widest pt-4">
-            Supprimer la leçon
+            {t('lessons.delete')}
           </button>
         </div>
       )}
@@ -286,7 +286,7 @@ export default function Lessons() {
 
             <div className="space-y-4">
               <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-1">Usage & Grammaire</span>
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-1">{t('lessons.usage')}</span>
                 <p className="text-blue-900 text-sm leading-relaxed">
                   {selectedWord.details || "Pas de détails supplémentaires disponibles."}
                 </p>
@@ -294,7 +294,7 @@ export default function Lessons() {
 
               {selectedWord.context && (
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Exemple</span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{t('lessons.example')}</span>
                   <p className="text-slate-700 text-sm font-medium">{selectedWord.context}</p>
                 </div>
               )}
@@ -304,7 +304,7 @@ export default function Lessons() {
               onClick={() => setSelectedWord(null)}
               className="w-full mt-6 bg-slate-900 text-white py-4 rounded-2xl font-bold active:scale-95 transition-all"
             >
-              Compris !
+              {t('lessons.got_it')}
             </button>
           </div>
         </div>

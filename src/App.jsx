@@ -30,7 +30,7 @@ function App() {
 }
 
 function AppContent() {
-  const { profile, activeTab, setActiveTab } = useApp()
+  const { profile, activeTab, setActiveTab, t } = useApp()
 
   // Forcer l'application du thème à chaque changement
   useEffect(() => {
@@ -66,16 +66,16 @@ function AppContent() {
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg border-t border-slate-100 dark:border-slate-700 px-2 py-3 flex justify-around items-center safe-area-bottom z-50 transition-colors duration-300">
-        <NavButton active={activeTab === 'home'} onClick={() => setActiveTab('home')} label="Home" icon="🏠" />
-        <NavButton active={activeTab === 'lessons'} onClick={() => setActiveTab('lessons')} label="Cours" icon="📚" />
-        <NavButton active={activeTab === 'words'} onClick={() => setActiveTab('words')} label="Mots" icon="🔤" />
-        <NavButton active={activeTab === 'revision'} onClick={() => setActiveTab('revision')} label="Révision" icon="🔁" />
+        <NavButton active={activeTab === 'home'} onClick={() => setActiveTab('home')} label={t('nav.home')} icon="🏠" />
+        <NavButton active={activeTab === 'lessons'} onClick={() => setActiveTab('lessons')} label={t('nav.lessons')} icon="📚" />
+        <NavButton active={activeTab === 'words'} onClick={() => setActiveTab('words')} label={t('nav.words')} icon="🔤" />
+        <NavButton active={activeTab === 'revision'} onClick={() => setActiveTab('revision')} label={t('nav.revision')} icon="🔁" />
         {showHangeul && (
-          <NavButton active={activeTab === 'hangeul'} onClick={() => setActiveTab('hangeul')} label="Hangeul" icon="🇰🇷" />
+          <NavButton active={activeTab === 'hangeul'} onClick={() => setActiveTab('hangeul')} label={t('nav.hangeul')} icon="🇰🇷" />
         )}
-        <NavButton active={activeTab === 'flashcards'} onClick={() => setActiveTab('flashcards')} label="Flashcards" icon="🃏" />
-        <NavButton active={activeTab === 'tutor'} onClick={() => setActiveTab('tutor')} label="Tuteur" icon="👨‍🏫" />
-        <NavButton active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} label="Profil" icon="👤" />
+        <NavButton active={activeTab === 'flashcards'} onClick={() => setActiveTab('flashcards')} label={t('nav.flashcards')} icon="🃏" />
+        <NavButton active={activeTab === 'tutor'} onClick={() => setActiveTab('tutor')} label={t('nav.tutor')} icon="👨‍🏫" />
+        <NavButton active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} label={t('nav.profile')} icon="👤" />
       </nav>
     </div>
   )

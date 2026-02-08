@@ -1,167 +1,148 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../supabaseClient'
 import { useApp } from '../AppContext'
 
-export default function Home() {
-  const { profile, languageProfile, loading: profileLoading, setActiveTab } = useApp()
-  const [stats, setStats] = useState({ words: 0, lessons: 0 })
-  const [loading, setLoading] = useState(true)
+function Home() {
+  const { profile, languageProfile, loading: profileLoading, setActiveTab, t } = useApp()
 
-  useEffect(() => {
-    if (profile?.target_language) {
-      fetchUserData()
-    }
-  }, [profile?.target_language])
-
-  async function fetchUserData() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user || !profile?.target_language) return
-
-      // Récupérer les stats filtrées par langue
-      const { count: wordCount } = await supabase
-        .from('learned_words')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('language', profile.target_language)
-
-      const { count: lessonCount } = await supabase
-        .from('completed_lessons')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('language', profile.target_language)
-
-      setStats({ words: wordCount || 0, lessons: lessonCount || 0 })
-    } catch (err) {
-      console.error("Erreur chargement Home:", err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading || profileLoading) return (
-    <div className="h-full flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  if (profileLoading) return (
+    <div className="flex items-center justify-center h-full">
+      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
     </div>
   )
 
-  if (!profile) return null
+  const displayName = profile?.username?.split('@')[0] || 'Utilisateur'
+  const xpForNextLevel = 100 // Supposons 100 XP par niveau pour l'affichage
+  const currentLevelProgress = languageProfile.xp % xpForNextLevel
+  const progressPercent = (currentLevelProgress / xpForNextLevel) * 100
 
   return (
-    <div className="p-6 pb-28 max-w-md mx-auto">
-      {/* Header avec salutation */}
-      <header className="pt-8 mb-8">
-        <h1 className="text-4xl font-black text-slate-800 dark:text-white mb-2">
-          Bonjour, {profile.username || 'Apprenant'} 👋
-        </h1>
-        <p className="text-slate-600 dark:text-slate-300 text-sm font-medium">
-          Continue ton apprentissage !
-        </p>
+    <div className="p-6 pb-28 max-w-md mx-auto space-y-8 animate-fade-in relative">
+      
+      {/* HEADER */}
+      <header className="flex justify-between items-center pt-4">
+        <div>
+          <p className="text-slate-400 dark:text-slate-500 text-sm font-bold uppercase tracking-wider mb-1">{t('home.welcome')},</p>
+          <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight leading-none bg-gradient-to-br from-slate-800 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">
+            {displayName}
+          </h1>
+        </div>
+        <div 
+          onClick={() => setActiveTab('profile')}
+          className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-lg shadow-blue-500/20 active:scale-95 transition-transform cursor-pointer hover:shadow-xl hover:shadow-blue-500/30"
+        >
+          {displayName.charAt(0).toUpperCase()}
+        </div>
       </header>
-
-      {/* Carte de niveau */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-lg mb-6 border border-slate-200 dark:border-slate-700">
-        <div className="flex items-center justify-between mb-4">
+      
+      {/* NIVEAU & PROGRESSION */}
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-700 relative overflow-hidden">
+        <div className="flex justify-between items-end mb-4 relative z-10">
           <div>
-            <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Niveau Actuel</p>
-            <h2 className="text-4xl font-black text-blue-600 dark:text-blue-400">
-              Niveau {languageProfile.level}
-            </h2>
+            <span className="text-5xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">{languageProfile.level}</span>
+            <span className="text-sm font-bold text-slate-400 dark:text-slate-500 ml-2 uppercase">{t('profile.level')}</span>
           </div>
-          <div className="text-5xl">🎯</div>
+          <div className="text-right">
+            <span className="text-xl font-black text-purple-600 dark:text-purple-400">{languageProfile.xp}</span>
+            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 block uppercase tracking-wide">XP Total</span>
+          </div>
         </div>
 
-        {/* Barre de progression XP */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs font-bold">
-            <span className="text-slate-600 dark:text-slate-300">{languageProfile.xp % 100} XP</span>
-            <span className="text-slate-400 dark:text-slate-500">100 XP</span>
+        {/* Barre de progression */}
+        <div className="space-y-2 relative z-10">
+          <div className="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
+            <span>{currentLevelProgress} XP</span>
+            <span>{xpForNextLevel} XP</span>
           </div>
-          <div className="w-full h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+          <div className="w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner">
             <div 
-              className="h-full bg-blue-500 dark:bg-blue-400 rounded-full transition-all duration-500"
-              style={{ width: `${(languageProfile.xp % 100)}%` }}
-            ></div>
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000 ease-out relative"
+              style={{ width: `${progressPercent}%` }}
+            >
+              <div className="absolute top-0 left-0 right-0 h-[1px] bg-white/30"></div>
+            </div>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
-            {100 - (languageProfile.xp % 100)} XP pour le niveau {languageProfile.level + 1}
+          <p className="text-xs text-center text-slate-400 font-medium pt-1">
+            {xpForNextLevel - currentLevelProgress} XP {t('home.until_next_level')}
           </p>
         </div>
+
+        {/* Décoration background */}
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-50 dark:bg-blue-900/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-purple-50 dark:bg-purple-900/20 rounded-full blur-3xl pointer-events-none"></div>
       </div>
 
-      {/* Stats rapides */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div 
-          onClick={() => setActiveTab('lessons')}
-          className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700 cursor-pointer active:scale-95 transition-transform hover:border-blue-300 dark:hover:border-slate-600"
-        >
-          <div className="text-3xl mb-2">📚</div>
-          <p className="text-2xl font-black text-slate-800 dark:text-white">{stats.lessons}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wide">Leçons</p>
-        </div>
-        <div 
-          onClick={() => setActiveTab('words')}
-          className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700 cursor-pointer active:scale-95 transition-transform hover:border-blue-300 dark:hover:border-slate-600"
-        >
-          <div className="text-3xl mb-2">🔤</div>
-          <p className="text-2xl font-black text-slate-800 dark:text-white">{stats.words}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wide">Mots</p>
-        </div>
-      </div>
-
-      {/* Carte d'encouragement */}
-      <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-6 rounded-[2.5rem] shadow-xl text-white mb-6">
-        <div className="flex items-center gap-4">
-          <div className="text-4xl">✨</div>
+      {/* Encouragement / Citation */}
+      <div className="bg-gradient-to-br from-blue-600 to-purple-700 p-6 rounded-[2rem] shadow-lg shadow-blue-900/20 text-white relative overflow-hidden">
+        <div className="relative z-10 flex items-center gap-4">
+          <span className="text-4xl">🚀</span>
           <div>
-            <h3 className="font-black text-lg mb-1">Continue comme ça !</h3>
-            <p className="text-white/90 text-sm">
-              Tu progresses bien en {profile.target_language} 🚀
+            <h3 className="font-bold text-lg leading-tight">{t('home.keep_going')}</h3>
+            <p className="text-blue-100 text-sm font-medium mt-1">
+              {t('home.learning_target', profile.target_language)}
             </p>
           </div>
         </div>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
       </div>
 
-      {/* Suggestions d'actions */}
-      <div className="space-y-3">
-        <h3 className="text-slate-700 dark:text-slate-300 font-black text-sm uppercase tracking-widest mb-4">
-          Que veux-tu faire ?
-        </h3>
-        <ActionCard 
-          icon="📖" 
-          title="Nouvelle leçon" 
-          description="Apprends de nouveaux concepts" 
-          onClick={() => setActiveTab('lessons')}
-        />
-        <ActionCard 
-          icon="🔁" 
-          title="Révision" 
-          description="Renforce tes connaissances" 
-          onClick={() => setActiveTab('revision')}
-        />
-        <ActionCard 
-          icon="🃏" 
-          title="Flashcards" 
-          description="Teste ta mémoire" 
-          onClick={() => setActiveTab('flashcards')}
-        />
+      {/* ACTIONS PRINCIPALES */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+          <h2 className="text-lg font-black text-slate-800 dark:text-white">{t('home.ready')}</h2>
+        </div>
+        
+        <div className="grid grid-cols-1 gap-3">
+          <ActionCard
+            icon="📖"
+            title={t('home.new_lesson')}
+            description={t('home.new_lesson_desc')}
+            onClick={() => setActiveTab('lessons')}
+            color="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+          />
+          <ActionCard
+            icon="🔁"
+            title={t('home.revision')}
+            description={t('home.revision_desc')}
+            onClick={() => setActiveTab('revision')}
+            color="bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400"
+          />
+          <ActionCard
+            icon="🃏"
+            title={t('home.flashcards')}
+            description={t('home.flashcards_desc')}
+            onClick={() => setActiveTab('flashcards')}
+            color="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
+          />
+          <ActionCard
+            icon="👨‍🏫"
+            title={t('home.tutor')}
+            description={t('home.tutor_desc')}
+            onClick={() => setActiveTab('tutor')}
+            color="bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+          />
+        </div>
       </div>
     </div>
   )
 }
 
-function ActionCard({ icon, title, description, onClick }) {
+function ActionCard({ icon, title, description, onClick, color }) {
   return (
-    <div 
+    <button
       onClick={onClick}
-      className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-md border border-slate-200 dark:border-slate-700 flex items-center gap-4 active:scale-95 transition-transform cursor-pointer hover:shadow-lg hover:border-blue-300 dark:hover:border-slate-600"
+      className="w-full bg-white dark:bg-slate-800 p-4 rounded-[1.5rem] shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-5 active:scale-95 transition-all hover:shadow-md hover:border-blue-300 dark:hover:border-slate-600 group text-left"
     >
-      <div className="text-3xl">{icon}</div>
-      <div className="flex-1">
-        <h4 className="font-black text-slate-800 dark:text-white text-sm">{title}</h4>
-        <p className="text-xs text-slate-500 dark:text-slate-400">{description}</p>
+      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm transition-transform group-hover:scale-110 ${color || 'bg-slate-100 text-slate-600'}`}>
+        {icon}
       </div>
-      <div className="text-slate-300 dark:text-slate-600">→</div>
-    </div>
+      <div className="flex-1">
+        <h3 className="font-bold text-slate-800 dark:text-white text-lg">{title}</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">{description}</p>
+      </div>
+      <div className="text-slate-300 dark:text-slate-600 pr-2">
+        ➔
+      </div>
+    </button>
   )
 }
+
+export default Home

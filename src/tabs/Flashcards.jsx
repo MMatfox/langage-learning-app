@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { useApp } from '../AppContext'
 
 export default function Flashcards() {
-  const { profile, addXP } = useApp()
+  const { profile, addXP, t } = useApp()
   const [cards, setCards] = useState([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
@@ -67,7 +67,7 @@ export default function Flashcards() {
         setCurrentIndex(prev => prev + 1)
       } else {
         await addXP(20)
-        alert("Session terminée ! Bravo 🎉 +20 XP")
+        alert(t('flashcards.session_end') + " (+20 XP)")
         setCurrentIndex(0)
         fetchCards()
       }
@@ -83,8 +83,8 @@ export default function Flashcards() {
   if (cards.length === 0) return (
     <div className="p-6 pb-28 flex flex-col items-center justify-center h-full max-w-md mx-auto text-center">
       <div className="text-6xl mb-4">📭</div>
-      <p className="text-slate-800 dark:text-white font-black text-xl mb-2">Ta boîte de révision est vide !</p>
-      <p className="text-slate-500 dark:text-slate-400 text-sm">Apprends de nouveaux mots dans l'onglet "Mots".</p>
+      <p className="text-slate-800 dark:text-white font-black text-xl mb-2">{t('flashcards.empty_title')}</p>
+      <p className="text-slate-500 dark:text-slate-400 text-sm">{t('flashcards.empty_desc')}</p>
     </div>
   )
 
@@ -93,7 +93,7 @@ export default function Flashcards() {
   return (
     <div className="p-6 pb-28 flex flex-col items-center h-full pt-8 max-w-md mx-auto">
       <header className="text-center mb-8 w-full">
-        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Flashcards</h2>
+        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('flashcards.title')}</h2>
         
         {/* Barre de progression */}
         <div className="flex gap-1 mt-4 justify-center h-1.5 w-full max-w-[200px] mx-auto">
@@ -124,7 +124,7 @@ export default function Flashcards() {
               {currentCard.word}
             </span>
             <p className="mt-8 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest animate-pulse">
-              Toucher pour retourner
+              {t('flashcards.flip')}
             </p>
           </div>
 
@@ -136,7 +136,7 @@ export default function Flashcards() {
               transform: 'rotateY(180deg)'
             }}
           >
-            <span className="text-[10px] uppercase tracking-widest opacity-80 mb-2 font-bold">Traduction</span>
+            <span className="text-[10px] uppercase tracking-widest opacity-80 mb-2 font-bold">{t('flashcards.translation')}</span>
             <span className="text-3xl font-black text-center mb-6 leading-snug">
               {currentCard.translation}
             </span>
@@ -162,18 +162,18 @@ export default function Flashcards() {
           onClick={(e) => { e.stopPropagation(); handleResult(-10); }}
           className="flex-1 bg-white dark:bg-slate-800 border border-red-200 dark:border-red-900/30 text-red-500 py-4 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 shadow-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
         >
-          À revoir ❌
+          {t('flashcards.review')}
         </button>
         <button 
           onClick={(e) => { e.stopPropagation(); handleResult(10); }}
           className="flex-1 bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 shadow-lg shadow-green-200 dark:shadow-green-900/20 transition-colors"
         >
-          Facile ✅
+          {t('flashcards.easy')}
         </button>
       </div>
       
       <p className="mt-6 text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest">
-        Carte {currentIndex + 1} / {cards.length}
+        {t('flashcards.card_count', currentIndex + 1, cards.length)}
       </p>
     </div>
   )

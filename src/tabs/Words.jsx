@@ -4,7 +4,7 @@ import { generateNewWord } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Words() {
-  const { profile, addXP } = useApp()
+  const { profile, addXP, t } = useApp()
   const [currentWord, setCurrentWord] = useState(null)
   const [words, setWords] = useState([])
   const [loading, setLoading] = useState(true)
@@ -61,11 +61,24 @@ export default function Words() {
   const speak = (text) => {
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'ko-KR'
+    utterance.lang = 'ko-KR' // À améliorer pour être dynamique selon la langue
+    
+    // Essayer de détecter la langue cible (approximatif pour l'instant reste sur KO mais on pourrait utiliser profile.target_language)
+    // Mais comme generateNewWord est très axé coréen dans l'implémentation de base aiService, on laisse ko-KR pour l'instant si c'est du coréen.
+    // Idéalement il faudrait mapper profile.target_language vers un code ISO (fr-FR, en-US, es-ES, ko-KR, ja-JP, zh-CN)
     
     const voices = window.speechSynthesis.getVoices()
-    const koVoice = voices.find(v => v.lang.includes('ko'))
-    if(koVoice) utterance.voice = koVoice
+    const targetLangCode = profile.target_language === 'Coréen' ? 'ko' : 
+                           profile.target_language === 'Japonais' ? 'ja' :
+                           profile.target_language === 'Chinois' ? 'zh' : 
+                           profile.target_language === 'English' ? 'en' :
+                           profile.target_language === 'Español' ? 'es' : 'fr';
+                           
+    const targetVoice = voices.find(v => v.lang.includes(targetLangCode))
+    if(targetVoice) {
+        utterance.voice = targetVoice
+        utterance.lang = targetVoice.lang
+    }
 
     window.speechSynthesis.speak(utterance)
   }
@@ -112,7 +125,7 @@ export default function Words() {
 
     } catch (error) {
       console.error("Erreur génération:", error)
-      alert("Erreur de connexion IA. Réessaie.")
+      alert(t('words.ai_error'))
     } finally {
       setLoading(false)
     }
@@ -121,10 +134,16 @@ export default function Words() {
   const startListening = () => {
     window.speechSynthesis.cancel()
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognition) return alert("Micro non supporté")
+    if (!SpeechRecognition) return alert(t('words.micro_error'))
 
     const recognition = new SpeechRecognition()
-    recognition.lang = 'ko-KR'
+    // Mapping manuel pour la reconnaissance
+    recognition.lang = profile.target_language === 'Coréen' ? 'ko-KR' : 
+                       profile.target_language === 'Japonais' ? 'ja-JP' :
+                       profile.target_language === 'Chinois' ? 'zh-CN' : 
+                       profile.target_language === 'English' ? 'en-US' :
+                       profile.target_language === 'Español' ? 'es-ES' : 'fr-FR';
+                       
     recognition.continuous = false
     
     recognition.onstart = () => setIsListening(true)
@@ -132,11 +151,15 @@ export default function Words() {
 
     recognition.onresult = async (event) => {
       const transcript = event.results[0][0].transcript.trim()
-      if (transcript.toLowerCase().includes(currentWord.word.replace(/[!?.]/g, '').toLowerCase())) {
-        alert("Bravo ! Excellente prononciation ✅ (+10 XP)")
+      // Nettoyage basique de la ponctuation pour comparer
+      const cleanTranscript = transcript.replace(/[!?.]/g, '').toLowerCase()
+      const cleanWord = currentWord.word.replace(/[!?.]/g, '').toLowerCase()
+      
+      if (cleanTranscript.includes(cleanWord) || cleanWord.includes(cleanTranscript)) { // Tolérance simple
+        alert(t('words.bravo'))
         await validateWord()
       } else {
-        alert(`Tu as dit : "${transcript}". Réessaie ! ❌`)
+        alert(t('words.retry', transcript))
       }
     }
     recognition.start()
@@ -181,19 +204,19 @@ export default function Words() {
   if (!currentWord) return (
     <div className="p-6 pb-28 max-w-md mx-auto">
       <header className="pt-8 mb-8">
-        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Nouveau Mot</h2>
-        <p className="text-slate-600 dark:text-slate-300 text-sm mt-2">Apprends un nouveau mot en {profile.target_language}</p>
+        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('words.title')}</h2>
+        <p className="text-slate-600 dark:text-slate-300 text-sm mt-2">{t('words.desc', profile.target_language)}</p>
       </header>
       <button 
         onClick={fetchNewWord}
         className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all"
       >
-        Générer un mot
+        {t('words.generate')}
       </button>
       
       {words.length > 0 && (
         <div className="mt-8">
-          <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-3">Mots récents ({words.length})</h3>
+          <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-3">{t('words.recent')} ({words.length})</h3>
           <div className="space-y-2">
             {words.map(w => (
               <div key={w.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center">
@@ -213,7 +236,7 @@ export default function Words() {
   return (
     <div className="p-6 pb-28 max-w-md mx-auto">
       <header className="pt-8 mb-6">
-        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Nouveau Mot</h2>
+        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('words.title')}</h2>
       </header>
 
       <div className="bg-white dark:bg-slate-800 p-8 rounded-[3rem] shadow-xl border border-slate-200 dark:border-slate-700 mb-6">
@@ -245,14 +268,14 @@ export default function Words() {
           className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl active:scale-95 transition-all flex flex-col items-center gap-1 font-bold border border-blue-200 dark:border-blue-800"
         >
           <span className="text-2xl">🔊</span>
-          <span className="text-[10px] uppercase">Écouter</span>
+          <span className="text-[10px] uppercase">{t('words.listen')}</span>
         </button>
         <button 
           onClick={startListening}
           className={`${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-800 dark:bg-slate-700 text-white'} p-4 rounded-2xl active:scale-95 transition-all flex flex-col items-center gap-1 font-bold shadow-lg`}
         >
           <span className="text-2xl">🎤</span>
-          <span className="text-[10px] uppercase">{isListening ? 'Parle...' : 'Répéter'}</span>
+          <span className="text-[10px] uppercase">{isListening ? t('words.speaking') : t('words.repeat')}</span>
         </button>
       </div>
 
@@ -261,13 +284,13 @@ export default function Words() {
           onClick={markAsKnown}
           className="flex-1 bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all"
         >
-          ✅ Je connais
+          ✅ {t('words.known')}
         </button>
         <button 
           onClick={fetchNewWord}
           className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all"
         >
-          ➡️ Suivant
+          ➡️ {t('words.next')}
         </button>
       </div>
     </div>

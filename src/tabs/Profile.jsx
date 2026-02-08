@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient'
 import { useApp } from '../AppContext'
 
 export default function Profile() {
-  const { profile, languageProfile, updateTheme, updateUILanguage, updateTargetLanguage, loading } = useApp()
+  const { profile, languageProfile, updateTheme, updateUILanguage, updateTargetLanguage, loading, t } = useApp()
   const [showSettings, setShowSettings] = useState(false)
 
   if (loading) return (
@@ -12,7 +12,7 @@ export default function Profile() {
     </div>
   )
 
-  if (!profile) return <p className="p-10 text-center">Profil introuvable.</p>
+  if (!profile) return <p className="p-10 text-center">{t('profile.not_found')}</p>
 
   const displayName = profile.username.includes('@') ? profile.username.split('@')[0] : profile.username
 
@@ -28,7 +28,7 @@ export default function Profile() {
   return (
     <div className="p-6 pb-28 max-w-md mx-auto">
       <header className="pt-8 mb-8">
-        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Profil</h2>
+        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('profile.title')}</h2>
       </header>
 
       {/* Avatar + Infos */}
@@ -48,15 +48,15 @@ export default function Profile() {
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] text-center shadow-lg border border-slate-200 dark:border-slate-700">
           <p className="text-3xl font-black text-blue-600 dark:text-blue-400">{languageProfile.level}</p>
-          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter mt-1">Niveau</p>
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter mt-1">{t('profile.level')}</p>
         </div>
         <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] text-center shadow-lg border border-slate-200 dark:border-slate-700">
           <p className="text-3xl font-black text-purple-500 dark:text-purple-400">{languageProfile.xp}</p>
-          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter mt-1">XP</p>
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter mt-1">{t('profile.xp')}</p>
         </div>
         <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] text-center shadow-lg border border-slate-200 dark:border-slate-700">
           <p className="text-3xl font-black text-purple-500 dark:text-purple-400">{profile.target_language?.substring(0, 2).toUpperCase()}</p>
-          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter mt-1">Langue Cible</p>
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter mt-1">{t('profile.target_lang')}</p>
         </div>
       </div>
 
@@ -68,7 +68,7 @@ export default function Profile() {
         >
           <div className="flex items-center gap-3">
             <span className="text-xl">⚙️</span>
-            <span className="font-bold text-slate-800 dark:text-white">Paramètres & Langues</span>
+            <span className="font-bold text-slate-800 dark:text-white">{t('profile.settings')}</span>
           </div>
           <span className={`transition-transform duration-300 text-slate-400 ${showSettings ? 'rotate-180' : ''}`}>▼</span>
         </button>
@@ -79,8 +79,8 @@ export default function Profile() {
             {/* 1. Thème */}
             <div className="flex justify-between items-center">
               <div className="flex flex-col">
-                <span className="text-sm font-bold text-slate-800 dark:text-white">Mode Sombre</span>
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black">Apparence</span>
+                <span className="text-sm font-bold text-slate-800 dark:text-white">{t('profile.dark_mode')}</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black">{t('profile.appearance')}</span>
               </div>
               <button 
                 onClick={handleThemeToggle} 
@@ -94,19 +94,20 @@ export default function Profile() {
 
             {/* 2. Langue de l'Interface */}
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase">Langue de l'application</label>
+              <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase">{t('profile.app_lang')}</label>
               <div className="grid grid-cols-3 gap-2">
                 {['Français', 'English', 'Español'].map(lang => (
                   <button
                     key={lang}
                     onClick={() => updateUILanguage(lang)}
-                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${
                       profile.ui_language === lang 
-                      ? 'bg-blue-500 text-white border-blue-500' 
+                      ? 'bg-blue-500 text-white border-blue-500 ring-2 ring-blue-200 dark:ring-blue-900' 
                       : 'bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300 border-slate-200 text-slate-500'
                     }`}
                   >
-                    {lang}
+                    {profile.ui_language === lang && <span>✓</span>}
+                    {t(`languages.${lang}`, lang)}
                   </button>
                 ))}
               </div>
@@ -116,19 +117,20 @@ export default function Profile() {
 
             {/* 3. Langue Cible */}
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase">Langue que tu apprends</label>
+              <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase">{t('profile.learning_lang')}</label>
               <div className="grid grid-cols-3 gap-2">
                 {['Coréen', 'Japonais', 'Chinois'].map(lang => (
                   <button
                     key={lang}
                     onClick={() => updateTargetLanguage(lang)}
-                    className={`py-3 rounded-xl text-xs font-black border-2 transition-all active:scale-95 shadow-sm ${
+                    className={`py-3 rounded-xl text-xs font-black border-2 transition-all active:scale-95 shadow-sm flex flex-col items-center justify-center gap-1 ${
                       profile.target_language === lang 
                       ? 'bg-purple-600 border-purple-600 text-white ring-4 ring-purple-100 dark:ring-purple-900/30' 
                       : 'bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300 border-slate-200 text-slate-500 hover:border-purple-300'
                     }`}
                   >
-                    {lang}
+                    {profile.target_language === lang && <span className="text-[10px]">✓</span>}
+                    {t(`languages.${lang}`, lang)}
                   </button>
                 ))}
               </div>
@@ -140,7 +142,7 @@ export default function Profile() {
           onClick={handleLogout} 
           className="w-full bg-red-500 hover:bg-red-600 text-white p-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest active:scale-95 transition-all mt-6 shadow-xl shadow-red-200 dark:shadow-none"
         >
-          Se déconnecter
+          {t('profile.logout')}
         </button>
       </div>
     </div>
