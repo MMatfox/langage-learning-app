@@ -23,14 +23,29 @@ export default function Words() {
 
 
 
-  const recognitionRef = useRef(null)
+  const toggleListening = async (e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
 
-  const toggleListening = async () => {
+    // Gestion du stop
     if (isListening || isStarting) {
-      recognitionRef.current?.stop()
+      try {
+        recognitionRef.current?.stop()
+        recognitionRef.current = null
+      } catch (err) {
+        console.warn("Stop error:", err)
+      }
       setIsListening(false)
       setIsStarting(false)
       return
+    }
+
+    // Vérification HTTPS (Crutial pour mobile)
+    if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+       showPopup("Le micro nécessite une connexion HTTPS sécurisée.", 'error')
+       return
     }
 
     setIsStarting(true)
@@ -45,7 +60,7 @@ export default function Words() {
       console.error("Hardware Mic Error:", err)
       setIsStarting(false)
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-         showPopup("Permission micro refusée au niveau du navigateur.", 'error')
+         showPopup("Permission micro refusée (vérifiez les paramètres du navigateur/OS).", 'error')
       } else if (err.name === 'NotFoundError') {
          showPopup("Aucun microphone détecté.", 'error')
       } else {
@@ -77,6 +92,7 @@ export default function Words() {
     recognition.lang = langMap[profile?.target_language] || 'ko-KR'     
     recognition.continuous = false
     recognition.interimResults = false
+    recognition.maxAlternatives = 1
     
     // Timeout de sécurité
     const safetyTimeout = setTimeout(() => {
@@ -84,7 +100,7 @@ export default function Words() {
         console.error("Microphone timeout - Speech API not starting")
         recognition.abort()
         setIsStarting(false)
-        showPopup("Service vocal inaccessible. Utilisez une autre méthode.", 'warning')
+        showPopup("Service vocal inaccessible. Vérifiez votre connexion.", 'warning')
       }
     }, 8000)
 
@@ -105,9 +121,9 @@ export default function Words() {
       console.error("Micro Error:", e.error)
       setIsListening(false)
       setIsStarting(false)
-      if (e.error === 'not-allowed') showPopup("Permission micro refusée !", 'error')
+      if (e.error === 'not-allowed') showPopup("Permission refusée.", 'error')
       else if (e.error === 'no-speech') showPopup("Aucune parole détectée.", 'info')
-      else if (e.error === 'network') showPopup("Erreur réseau (Speech API).", 'error')
+      else if (e.error === 'network') showPopup("Erreur réseau (HTTPS requis ?).", 'error')
       else showPopup(`Erreur micro: ${e.error}`, 'error')
     }
 
@@ -384,6 +400,29 @@ export default function Words() {
           ➡️ {t('words.next')}
         </button>
       </div>
+
+      {/* OVERLAY D'ÉCOUTE (Style Tutor) */}
+      {isListening && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex flex-col items-center justify-center animate-fade-in backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-full shadow-2xl animate-pulse relative">
+            <span className="text-6xl">🎤</span>
+            <div className="absolute inset-0 border-4 border-blue-400 rounded-full animate-ping opacity-20"></div>
+          </div>
+          <p className="text-white font-black text-2xl mt-8 tracking-widest uppercase animate-bounce">{t('words.speaking')}</p>
+          <p className="text-white/80 text-sm mt-2 font-medium">Prononcez : "{currentWord?.word}"</p>
+          
+          <button 
+            onClick={() => { 
+                try { recognitionRef.current?.stop() } catch(e){}
+                setIsListening(false) 
+                setIsStarting(false)
+            }} 
+            className="mt-12 bg-white/20 hover:bg-white/30 text-white px-8 py-3 rounded-full font-bold backdrop-blur-md border border-white/30 transition-all active:scale-95"
+          >
+            Annuler
+          </button>
+        </div>
+      )}
     </div>
   )
 }

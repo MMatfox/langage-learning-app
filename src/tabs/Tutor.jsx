@@ -222,7 +222,13 @@ export default function Tutor() {
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript
       if (transcript) {
-        setInput(prev => prev ? `${prev} ${transcript}` : transcript)
+        clearTimeout(safetyTimeout)
+        setInput(transcript)
+        // AUTO-SEND pour mode conversation fluide
+        setIsListening(false)
+        recognition.onend = null // Avoid double trigger
+        recognitionRef.current?.stop()
+        sendMessage(null, transcript)
       }
     }
 
@@ -237,12 +243,13 @@ export default function Tutor() {
     }
   }
 
-  const sendMessage = async (e) => {
+  const sendMessage = async (e, overrideText = null) => {
     if (e) e.preventDefault()
-    if (!input.trim() || loading) return
+    
+    const textToSend = overrideText || input
+    if (!textToSend.trim() || loading) return
 
-    const userText = input
-    setMessages(prev => [...prev, { role: 'user', text: userText }])
+    setMessages(prev => [...prev, { role: 'user', text: textToSend }])
     setInput('')
     setLoading(true)
 
@@ -252,7 +259,7 @@ export default function Tutor() {
         parts: [{ text: m.text }]
       }))
       
-      const response = await chatWithTutor(history, userText)
+      const response = await chatWithTutor(history, textToSend)
       setMessages(prev => [...prev, { role: 'model', text: response }])
       speak(response)
       
