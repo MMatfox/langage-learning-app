@@ -154,7 +154,18 @@ export default function Flashcards() {
               onClick={(e) => {
                 e.stopPropagation();
                 const utterance = new SpeechSynthesisUtterance(currentCard.word);
-                utterance.lang = 'ko-KR'; // Hardcodé pour coréen pour l'instant, idéalement dynamique
+                
+                const langMap = {
+                  'Coréen': 'ko-KR',
+                  'Japonais': 'ja-JP',
+                  'Chinois': 'zh-CN',
+                  'Anglais': 'en-US',
+                  'Français': 'fr-FR',
+                  'Espagnol': 'es-ES',
+                  'Allemand': 'de-DE'
+                };
+                
+                utterance.lang = langMap[profile?.target_language] || 'ko-KR'; // Fallback
                 utterance.rate = 0.8;
                 window.speechSynthesis.speak(utterance);
               }}

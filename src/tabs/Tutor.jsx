@@ -44,20 +44,66 @@ export default function Tutor() {
 
   const speak = (text) => {
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
+    const targetLang = profile?.target_language;
     
-    const targetVoice = voices.find(v => v.lang.includes(currentConfig.langCode.split('-')[0]));
-    const frVoice = voices.find(v => v.lang.includes('fr'));
+    let targetRegex;
+    let targetCode = 'fr-FR'; 
 
-    if (targetVoice) { 
-       utterance.voice = targetVoice; 
-       utterance.lang = currentConfig.langCode;
-    } else if (frVoice) {
-       utterance.voice = frVoice;
+    if (targetLang === 'Coréen') {
+        targetRegex = /([\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]+)/; // Hangeul
+        targetCode = 'ko-KR';
+    } else if (targetLang === 'Japonais') {
+        targetRegex = /([\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+)/; // Hiragana, Katakana, Kanji
+        targetCode = 'ja-JP';
+    } else if (targetLang === 'Chinois') {
+        targetRegex = /([\u4E00-\u9FAF]+)/; // Hanzi
+        targetCode = 'zh-CN';
     }
-    
-    window.speechSynthesis.speak(utterance);
+
+    const uiLangMap = {
+      'Français': 'fr-FR',
+      'Anglais': 'en-US',
+      'Espagnol': 'es-ES',
+      'Allemand': 'de-DE'
+    };
+    const fallbackCode = uiLangMap[profile?.ui_language] || 'fr-FR';
+
+    // Fonction helper pour trouver la voix
+    const getVoice = (langCode) => {
+      return voices.find(v => v.lang.replace('_', '-').includes(langCode.split('-')[0])) 
+          || voices.find(v => v.lang.includes(langCode.substring(0, 2)));
+    }
+
+    if (!targetRegex) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.voice = getVoice(fallbackCode); // Default fallback
+      window.speechSynthesis.speak(utterance);
+      return;
+    }
+
+    // Découper le texte : partie cible vs reste (supposé français/anglais)
+    const parts = text.split(targetRegex);
+
+    parts.forEach(part => {
+      if (!part.trim()) return;
+
+      const isTarget = targetRegex.test(part);
+      const utterance = new SpeechSynthesisUtterance(part);
+      
+      if (isTarget) {
+        const v = getVoice(targetCode);
+        if (v) utterance.voice = v;
+        utterance.lang = targetCode;
+        utterance.rate = 0.9; // Un peu plus lent pour la langue cible
+      } else {
+        const v = getVoice(fallbackCode); // Langue UI
+        if (v) utterance.voice = v;
+        utterance.lang = fallbackCode;
+      }
+
+      window.speechSynthesis.speak(utterance);
+    });
   };
 
   const toggleVoiceInput = () => {

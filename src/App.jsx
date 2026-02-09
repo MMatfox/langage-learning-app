@@ -8,6 +8,7 @@ import Words from './tabs/Words'
 import Popup from './Popup'
 import Revision from './tabs/Revision'
 import Hangeul from './tabs/Hangeul'
+import JapaneseAlphabet from './tabs/JapaneseAlphabet'
 import Profile from './tabs/Profile'
 import Tutor from './tabs/Tutor'
 import Flashcards from './tabs/Flashcards'
@@ -44,14 +45,18 @@ function AppContent() {
     }
   }, [profile?.theme])
 
-  // Redirection si on est sur Hangeul mais que la langue change
+  // Redirection si on est sur Hangeul/Alphabet mais que la langue change
   useEffect(() => {
     if (activeTab === 'hangeul' && profile?.target_language !== 'Coréen') {
+      setActiveTab('home')
+    }
+    if (activeTab === 'alphabet' && profile?.target_language !== 'Japonais') {
       setActiveTab('home')
     }
   }, [profile?.target_language, activeTab, setActiveTab])
 
   const showHangeul = profile?.target_language === 'Coréen'
+  const showJapanese = profile?.target_language === 'Japonais'
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden font-sans transition-colors duration-300">
@@ -62,6 +67,7 @@ function AppContent() {
         {activeTab === 'words' && <Words />}
         {activeTab === 'revision' && <Revision />}
         {activeTab === 'hangeul' && showHangeul && <Hangeul />}
+        {activeTab === 'alphabet' && showJapanese && <JapaneseAlphabet />}
         {activeTab === 'tutor' && <Tutor />}
         {activeTab === 'flashcards' && <Flashcards />}
         {activeTab === 'profile' && <Profile />}
@@ -74,6 +80,9 @@ function AppContent() {
         <NavButton active={activeTab === 'revision'} onClick={() => setActiveTab('revision')} label={t('nav.revision')} icon="🔁" />
         {showHangeul && (
           <NavButton active={activeTab === 'hangeul'} onClick={() => setActiveTab('hangeul')} label={t('nav.hangeul')} icon="🇰🇷" />
+        )}
+        {showJapanese && (
+          <NavButton active={activeTab === 'alphabet'} onClick={() => setActiveTab('alphabet')} label="Alphabet" icon="🇯🇵" />
         )}
         <NavButton active={activeTab === 'flashcards'} onClick={() => setActiveTab('flashcards')} label={t('nav.flashcards')} icon="🃏" />
         <NavButton active={activeTab === 'tutor'} onClick={() => setActiveTab('tutor')} label={t('nav.tutor')} icon="👨‍🏫" />

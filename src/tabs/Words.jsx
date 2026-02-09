@@ -61,23 +61,28 @@ export default function Words() {
   const speak = (text) => {
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'ko-KR' // À améliorer pour être dynamique selon la langue
     
-    // Essayer de détecter la langue cible (approximatif pour l'instant reste sur KO mais on pourrait utiliser profile.target_language)
-    // Mais comme generateNewWord est très axé coréen dans l'implémentation de base aiService, on laisse ko-KR pour l'instant si c'est du coréen.
-    // Idéalement il faudrait mapper profile.target_language vers un code ISO (fr-FR, en-US, es-ES, ko-KR, ja-JP, zh-CN)
+    const langMap = {
+      'Coréen': 'ko-KR',
+      'Japonais': 'ja-JP',
+      'Chinois': 'zh-CN',
+      'Anglais': 'en-US',
+      'Français': 'fr-FR',
+      'Espagnol': 'es-ES',
+      'Allemand': 'de-DE'
+    };
     
+    const targetCode = langMap[profile?.target_language] || 'fr-FR';
+    utterance.lang = targetCode;
+    utterance.rate = 0.8;
+
     const voices = window.speechSynthesis.getVoices()
-    const targetLangCode = profile.target_language === 'Coréen' ? 'ko' : 
-                           profile.target_language === 'Japonais' ? 'ja' :
-                           profile.target_language === 'Chinois' ? 'zh' : 
-                           profile.target_language === 'English' ? 'en' :
-                           profile.target_language === 'Español' ? 'es' : 'fr';
-                           
-    const targetVoice = voices.find(v => v.lang.includes(targetLangCode))
+    // Tentaive de trouver la voix spécifique ou une voix de la langue
+    const targetVoice = voices.find(v => v.lang === targetCode) 
+                     || voices.find(v => v.lang.startsWith(targetCode.split('-')[0]));
+
     if(targetVoice) {
         utterance.voice = targetVoice
-        utterance.lang = targetVoice.lang
     }
 
     window.speechSynthesis.speak(utterance)

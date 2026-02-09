@@ -199,9 +199,41 @@ export default function Lessons() {
     }
   }
 
+  // --- DICTION ---
+  const speak = (text) => {
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    
+    const langMap = {
+      'Coréen': 'ko-KR',
+      'Japonais': 'ja-JP',
+      'Chinois': 'zh-CN',
+      'Anglais': 'en-US',
+      'Français': 'fr-FR',
+      'Espagnol': 'es-ES',
+      'Allemand': 'de-DE'
+    };
+    
+    const targetCode = langMap[profile?.target_language] || 'fr-FR';
+    utterance.lang = targetCode;
+    utterance.rate = 0.8;
+
+    const voices = window.speechSynthesis.getVoices()
+    const targetVoice = voices.find(v => v.lang === targetCode) 
+                     || voices.find(v => v.lang.startsWith(targetCode.split('-')[0]));
+
+    if(targetVoice) {
+        utterance.voice = targetVoice
+    }
+
+    window.speechSynthesis.speak(utterance)
+  }
+
   // --- AFFICHAGE SÉCURISÉ ---
   const renderSafeContent = (content) => {
     if (content === null || content === undefined) return null;
+// ... (rest of renderSafeContent remains unchanged, but I need to target correctly to insert speak before it)
+
     if (typeof content === 'string' || typeof content === 'number') {
       return <span className="text-slate-600 leading-relaxed text-sm italic whitespace-pre-line">{content}</span>;
     }
@@ -346,7 +378,16 @@ export default function Lessons() {
             </button>
 
             <div className="text-center mb-6">
-              <h3 className="text-4xl font-black text-slate-800 mb-1">{selectedWord.kr}</h3>
+              <div className="flex items-center justify-center gap-3 mb-1">
+                <h3 className="text-4xl font-black text-slate-800">{selectedWord.kr}</h3>
+                <button 
+                  onClick={() => speak(selectedWord.kr)}
+                  className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200 transition-colors active:scale-95"
+                  title="Écouter"
+                >
+                  🔊
+                </button>
+              </div>
               <p className="text-blue-500 font-medium italic">{selectedWord.romanization}</p>
               <p className="text-slate-400 font-bold uppercase text-xs mt-2 tracking-widest">{selectedWord.fr}</p>
             </div>

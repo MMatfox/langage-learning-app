@@ -60,6 +60,32 @@ export default function Revision() {
     fetchData()
   }, [activeTab, filterWord, profile?.target_language])
 
+  const speak = (text) => {
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    
+    const langMap = {
+      'Coréen': 'ko-KR',
+      'Japonais': 'ja-JP',
+      'Chinois': 'zh-CN',
+      'Anglais': 'en-US',
+      'Français': 'fr-FR',
+      'Espagnol': 'es-ES',
+      'Allemand': 'de-DE'
+    };
+    
+    const targetCode = langMap[profile?.target_language] || 'fr-FR';
+    utterance.lang = targetCode;
+    utterance.rate = 0.8;
+
+    const voices = window.speechSynthesis.getVoices()
+    const targetVoice = voices.find(v => v.lang === targetCode) 
+                          || voices.find(v => v.lang.startsWith(targetCode.split('-')[0]));
+    if(targetVoice) { utterance.voice = targetVoice }
+
+    window.speechSynthesis.speak(utterance)
+  }
+
   const boostMastery = async (id, current) => {
     const newMastery = Math.min(current + 10, 100)
     setWords(prev => prev.map(w => w.id === id ? { ...w, mastery_level: newMastery } : w))
@@ -282,7 +308,16 @@ export default function Revision() {
             </button>
 
             <div className="text-center mb-6">
-              <h3 className="text-4xl font-black text-slate-800 dark:text-white mb-1">{selectedWord.kr}</h3>
+              <div className="flex items-center justify-center gap-3 mb-1">
+                <h3 className="text-4xl font-black text-slate-800 dark:text-white">{selectedWord.kr}</h3>
+                <button 
+                  onClick={() => speak(selectedWord.kr)}
+                  className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors active:scale-95"
+                  title="Écouter"
+                >
+                  🔊
+                </button>
+              </div>
               <p className="text-blue-500 font-medium italic">{selectedWord.romanization}</p>
               <p className="text-slate-400 font-bold uppercase text-xs mt-2 tracking-widest">{selectedWord.fr}</p>
             </div>
