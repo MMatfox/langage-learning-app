@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import { generateNewWord } from '../services/aiService'
 import { useApp } from '../AppContext'
@@ -9,6 +9,7 @@ export default function Words() {
   const [words, setWords] = useState([])
   const [loading, setLoading] = useState(true)
   const [isListening, setIsListening] = useState(false)
+  const [isStarting, setIsStarting] = useState(false)
   
   useEffect(() => {
     if (profile?.target_language) {
@@ -20,6 +21,121 @@ export default function Words() {
     }
   }, [profile?.target_language])
 
+
+
+  const recognitionRef = useRef(null)
+
+  const toggleListening = async () => {
+    if (isListening || isStarting) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+      setIsStarting(false)
+      return
+    }
+
+    setIsStarting(true)
+    window.speechSynthesis.cancel()
+
+    // 1. Hardware Check
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(track => track.stop()) 
+      await new Promise(resolve => setTimeout(resolve, 500))
+    } catch (err) {
+      console.error("Hardware Mic Error:", err)
+      setIsStarting(false)
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+         showPopup("Permission micro refusée au niveau du navigateur.", 'error')
+      } else if (err.name === 'NotFoundError') {
+         showPopup("Aucun microphone détecté.", 'error')
+      } else {
+         showPopup(`Problème matériel: ${err.message}`, 'error')
+      }
+      return
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition
+    if (!SpeechRecognition) {
+      showPopup(t('words.micro_error'), 'error')
+      setIsStarting(false)
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    recognitionRef.current = recognition
+    
+    // Mapping robuste
+    const langMap = {
+      'Coréen': 'ko-KR',
+      'Japonais': 'ja-JP',
+      'Chinois': 'zh-CN',
+      'Anglais': 'en-US',
+      'Français': 'fr-FR',
+      'Espagnol': 'es-ES',
+      'Allemand': 'de-DE'
+    };
+    recognition.lang = langMap[profile?.target_language] || 'ko-KR'     
+    recognition.continuous = false
+    recognition.interimResults = false
+    
+    // Timeout de sécurité
+    const safetyTimeout = setTimeout(() => {
+      if (recognitionRef.current === recognition) {
+        console.error("Microphone timeout - Speech API not starting")
+        recognition.abort()
+        setIsStarting(false)
+        showPopup("Service vocal inaccessible. Utilisez une autre méthode.", 'warning')
+      }
+    }, 8000)
+
+    recognition.onstart = () => {
+      clearTimeout(safetyTimeout)
+      setIsListening(true)
+      setIsStarting(false)
+    }
+    
+    recognition.onend = () => {
+      clearTimeout(safetyTimeout)
+      setIsListening(false)
+      setIsStarting(false)
+    }
+
+    recognition.onerror = (e) => {
+      clearTimeout(safetyTimeout)
+      console.error("Micro Error:", e.error)
+      setIsListening(false)
+      setIsStarting(false)
+      if (e.error === 'not-allowed') showPopup("Permission micro refusée !", 'error')
+      else if (e.error === 'no-speech') showPopup("Aucune parole détectée.", 'info')
+      else if (e.error === 'network') showPopup("Erreur réseau (Speech API).", 'error')
+      else showPopup(`Erreur micro: ${e.error}`, 'error')
+    }
+
+    recognition.onresult = async (event) => {
+      const transcript = event.results[0][0].transcript.trim()
+      const cleanTranscript = transcript.replace(/[!?.]/g, '').toLowerCase()
+      const cleanTarget = currentWord.word.replace(/[!?.]/g, '').toLowerCase()
+
+      // Comparaison simple pour l'instant
+      if (cleanTranscript === cleanTarget || transcript.includes(currentWord.word)) {
+         showPopup("Bravo ! Prononciation correcte 🎉", 'success')
+         // Petit gain d'XP pour la prononciation ?
+         await addXP(5)
+      } else {
+         showPopup(`Entendu: "${transcript}". Essaie encore !`, 'warning')
+      }
+    }
+
+    try {
+      recognition.start()
+    } catch (e) {
+      clearTimeout(safetyTimeout)
+      console.error(e)
+      showPopup("Impossible de démarrer le micro.", 'error')
+      setIsListening(false)
+      setIsStarting(false)
+    }
+  }
   const loadState = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || !profile?.target_language) return
@@ -136,39 +252,8 @@ export default function Words() {
     }
   }
 
-  const startListening = () => {
-    window.speechSynthesis.cancel()
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognition) return showPopup(t('words.micro_error'), 'error')
 
-    const recognition = new SpeechRecognition()
-    // Mapping manuel pour la reconnaissance
-    recognition.lang = profile.target_language === 'Coréen' ? 'ko-KR' : 
-                       profile.target_language === 'Japonais' ? 'ja-JP' :
-                       profile.target_language === 'Chinois' ? 'zh-CN' : 
-                       profile.target_language === 'English' ? 'en-US' :
-                       profile.target_language === 'Español' ? 'es-ES' : 'fr-FR';
-                       
-    recognition.continuous = false
-    
-    recognition.onstart = () => setIsListening(true)
-    recognition.onend = () => setIsListening(false)
 
-    recognition.onresult = async (event) => {
-      const transcript = event.results[0][0].transcript.trim()
-      // Nettoyage basique de la ponctuation pour comparer
-      const cleanTranscript = transcript.replace(/[!?.]/g, '').toLowerCase()
-      const cleanWord = currentWord.word.replace(/[!?.]/g, '').toLowerCase()
-      
-      if (cleanTranscript.includes(cleanWord) || cleanWord.includes(cleanTranscript)) { // Tolérance simple
-        showPopup(t('words.bravo'), 'success')
-        await validateWord()
-      } else {
-        showPopup(t('words.retry', transcript), 'info')
-      }
-    }
-    recognition.start()
-  }
 
   const validateWord = async () => {
     if (!currentWord) return
@@ -276,11 +361,12 @@ export default function Words() {
           <span className="text-[10px] uppercase">{t('words.listen')}</span>
         </button>
         <button 
-          onClick={startListening}
-          className={`${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-800 dark:bg-slate-700 text-white'} p-4 rounded-2xl active:scale-95 transition-all flex flex-col items-center gap-1 font-bold shadow-lg`}
+          onClick={toggleListening}
+          disabled={isStarting}
+          className={`${isListening ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200' : isStarting ? 'bg-yellow-400 text-white' : 'bg-slate-800 dark:bg-slate-700 text-white'} p-4 rounded-2xl active:scale-95 transition-all flex flex-col items-center gap-1 font-bold shadow-lg`}
         >
-          <span className="text-2xl">🎤</span>
-          <span className="text-[10px] uppercase">{isListening ? t('words.speaking') : t('words.repeat')}</span>
+          <span className={`text-2xl ${isStarting ? 'animate-spin' : ''}`}>{isStarting ? '⏳' : isListening ? '⏹️' : '🎤'}</span>
+          <span className="text-[10px] uppercase">{isStarting ? '...' : isListening ? t('words.speaking') : t('words.repeat')}</span>
         </button>
       </div>
 

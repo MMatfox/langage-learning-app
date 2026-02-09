@@ -11,6 +11,7 @@ export default function Tutor() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [isStarting, setIsStarting] = useState(false)
   const chatEndRef = useRef(null)
   const recognitionRef = useRef(null) // Pour contrôler l'instance
 
@@ -106,41 +107,117 @@ export default function Tutor() {
     });
   };
 
-  const toggleVoiceInput = () => {
-    // Si déjà en écoute, on arrête
-    if (isListening) {
+  // Ref pour gérer le retry
+  const retryFallback = useRef(false)
+
+  const toggleVoiceInput = async () => {
+    console.log("toggleVoiceInput called. Status:", { isListening, isStarting })
+    
+    if (isListening || isStarting) {
       recognitionRef.current?.stop()
       setIsListening(false)
+      setIsStarting(false)
+      retryFallback.current = false
       return
     }
 
+    setIsStarting(true)
+    retryFallback.current = false // Reset retry state
     window.speechSynthesis.cancel()
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+
+    // 1. Hardware Check
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(track => track.stop()) 
+      await new Promise(resolve => setTimeout(resolve, 500))
+    } catch (err) {
+      console.error("Hardware Mic Error:", err)
+      setIsStarting(false)
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+         showPopup("Permission micro refusée au niveau du navigateur.", 'error')
+      } else if (err.name === 'NotFoundError') {
+         showPopup("Aucun microphone détecté.", 'error')
+      } else {
+         showPopup(`Problème matériel: ${err.message}`, 'error')
+      }
+      return
+    }
     
+    startRecognition(currentConfig?.langCode || 'fr-FR')
+  }
+
+  const startRecognition = (langCode) => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition
     if (!SpeechRecognition) {
       showPopup(t('tutor.speech_error'), 'error')
+      setIsStarting(false)
       return
     }
 
+    console.log("Launching recognition with:", langCode)
     const recognition = new SpeechRecognition()
     recognitionRef.current = recognition
-    recognition.lang = currentConfig.langCode // Langue cible pour l'exercice
-    // Mais si l'utilisateur veut parler sa langue ? Idéalement détection auto ou bouton toggle lang
-    // Pour l'instant on reste sur la config
-    
+    recognition.lang = langCode
     recognition.interimResults = false
     recognition.maxAlternatives = 1
 
-    recognition.onstart = () => setIsListening(true)
+    // Timeout de sécurité
+    const safetyTimeout = setTimeout(() => {
+      if (recognitionRef.current === recognition) {
+        console.error("Microphone timeout - Speech API not starting")
+        recognition.abort()
+        
+        // RETRY LOGIC
+        if (!retryFallback.current && langCode !== 'fr-FR') {
+            console.log("Timeout on target lang. Retrying with fallback...")
+            retryFallback.current = true
+            showPopup("Langue cible lente. Tentative en mode standard...", 'info')
+            setTimeout(() => startRecognition('fr-FR'), 500)
+            return // Don't reset isStarting yet
+        }
+
+        setIsStarting(false)
+        showPopup("Le service vocal est inaccessible. Utilisez le clavier.", 'warning')
+      }
+    }, 8000)
+
+    recognition.onstart = () => {
+      console.log("Micro started (" + langCode + ")")
+      clearTimeout(safetyTimeout)
+      setIsListening(true)
+      setIsStarting(false)
+    }
     
     recognition.onerror = (e) => {
       console.error("Micro Error:", e.error)
+      clearTimeout(safetyTimeout)
+      
+      // Si erreur de réseau ou langue non supportée, on tente le fallback
+      if ((e.error === 'language-not-supported' || e.error === 'network') && !retryFallback.current && langCode !== 'fr-FR') {
+          retryFallback.current = true
+          showPopup("Problème de langue. Essai en français...", 'info')
+          setTimeout(() => startRecognition('fr-FR'), 500)
+          return
+      }
+
       setIsListening(false)
+      setIsStarting(false)
+      
       if (e.error === 'not-allowed') showPopup(t('tutor.micro_permission'), 'error')
-      if (e.error === 'no-speech') showPopup("Aucune parole détectée. Réessayez.", 'info')
+      else if (e.error === 'no-speech') showPopup("Aucune parole détectée.", 'info')
+      else if (e.error === 'network') showPopup("Erreur réseau (Speech API).", 'error')
+      else showPopup(`Erreur micro: ${e.error}`, 'error')
     }
 
-    recognition.onend = () => setIsListening(false)
+    recognition.onend = () => {
+      console.log("Micro ended")
+      clearTimeout(safetyTimeout)
+      // Ne pas désactiver si on est en train de retry
+      if (!retryFallback.current) {
+         setIsListening(false)
+         setIsStarting(false)
+      }
+    }
 
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript
@@ -152,8 +229,11 @@ export default function Tutor() {
     try {
       recognition.start()
     } catch (e) {
-      console.error(e)
+      console.error("Start failed:", e)
+      clearTimeout(safetyTimeout)
       setIsListening(false)
+      setIsStarting(false)
+      showPopup("Impossible de démarrer le micro.", 'error')
     }
   }
 
@@ -185,8 +265,8 @@ export default function Tutor() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#F8FAFC]">
-      <div className="p-4 bg-white border-b flex items-center justify-between pt-12 shadow-sm z-10">
+    <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
+      <div className="sticky top-0 p-4 bg-white/90 backdrop-blur-md border-b flex items-center justify-between pt-12 shadow-sm z-40">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-2xl flex items-center justify-center text-2xl shadow-inner shadow-white/20">👨‍🏫</div>
           <div>
@@ -200,7 +280,7 @@ export default function Tutor() {
         <button onClick={() => window.speechSynthesis.cancel()} className="p-2 bg-slate-50 rounded-xl text-slate-400 transition-colors active:bg-slate-200">🔇</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-32">
+      <div className="flex-1 p-4 space-y-6 pb-40">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
             <div className={`relative max-w-[85%] p-4 rounded-[2rem] shadow-sm text-sm leading-relaxed ${
@@ -225,14 +305,18 @@ export default function Tutor() {
         <div ref={chatEndRef} />
       </div>
 
-      <div className="absolute bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]">
+      <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC] z-40">
         <form onSubmit={sendMessage} className="max-w-md mx-auto bg-white p-2 rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-slate-100 flex gap-2 items-center">
           <button 
             type="button"
             onClick={toggleVoiceInput}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-50 text-slate-400'}`}
+            disabled={isStarting}
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-md active:scale-95 active:shadow-inner ${
+              isListening ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200' : 
+              isStarting ? 'bg-yellow-400 text-white animate-spin' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}
           >
-            {isListening ? '●' : '🎤'}
+            {isStarting ? '⏳' : isListening ? '⏹️' : '🎤'}
           </button>
           <input 
             className="flex-1 bg-transparent py-2 px-1 text-sm focus:outline-none"
@@ -243,6 +327,25 @@ export default function Tutor() {
           <button type="submit" disabled={!input.trim() || loading} className="bg-blue-600 text-white w-12 h-12 rounded-full flex items-center justify-center shadow-lg active:scale-90 disabled:opacity-30 transition-all">🚀</button>
         </form>
       </div>
+
+      {/* OVERLAY D'ÉCOUTE ATTENDU PAR L'UTILISATEUR */}
+      {isListening && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex flex-col items-center justify-center animate-fade-in backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-full shadow-2xl animate-pulse relative">
+            <span className="text-6xl">🎤</span>
+            <div className="absolute inset-0 border-4 border-blue-400 rounded-full animate-ping opacity-20"></div>
+          </div>
+          <p className="text-white font-black text-2xl mt-8 tracking-widest uppercase animate-bounce">J'écoute...</p>
+          <p className="text-white/80 text-sm mt-2 font-medium">Parlez maintenant ({currentConfig.langCode})</p>
+          
+          <button 
+            onClick={() => { recognitionRef.current?.stop(); setIsListening(false); }} 
+            className="mt-12 bg-white/20 hover:bg-white/30 text-white px-8 py-3 rounded-full font-bold backdrop-blur-md border border-white/30 transition-all active:scale-95"
+          >
+            Annuler
+          </button>
+        </div>
+      )}
     </div>
   )
 }
