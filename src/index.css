@@ -5,28 +5,25 @@
   --color-slate-900: #1e293b;
 }
 
-/* Configuration du mode sombre basé sur la classe */
 @variant dark (&:where(.dark, .dark *));
 
-/* Styles personnalisés */
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   overflow: hidden;
 }
 
-/* Thème clair - Fond neutre et doux */
 html {
   background-color: #f1f5f9;
   transition: background-color 0.3s ease;
 }
 
-/* Thème sombre - Fond sombre doux (pas noir) */
 html.dark {
   background-color: #1e293b;
 }
 
-/* Animation de fade-in */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -42,7 +39,6 @@ html.dark {
   animation: fade-in 0.3s ease-out;
 }
 
-/* Animation de slide-down */
 @keyframes slide-down {
   from {
     opacity: 0;
@@ -58,7 +54,6 @@ html.dark {
   animation: slide-down 0.3s ease-out;
 }
 
-/* Animation de slide-up */
 @keyframes slide-up {
   from {
     opacity: 0;
@@ -74,11 +69,17 @@ html.dark {
   animation: slide-up 0.4s ease-out;
 }
 
-/* Animation de shake pour feedback erreur */
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
 }
 
 .shake {

@@ -36,7 +36,6 @@ export default function Words() {
     setIsStarting(true)
     window.speechSynthesis.cancel()
 
-    // 1. Hardware Check
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       stream.getTracks().forEach(track => track.stop()) 
@@ -64,7 +63,6 @@ export default function Words() {
     const recognition = new SpeechRecognition()
     recognitionRef.current = recognition
     
-    // Mapping robuste
     const langMap = {
       'Coréen': 'ko-KR',
       'Japonais': 'ja-JP',
@@ -78,7 +76,6 @@ export default function Words() {
     recognition.continuous = false
     recognition.interimResults = false
     
-    // Timeout de sécurité
     const safetyTimeout = setTimeout(() => {
       if (recognitionRef.current === recognition) {
         console.error("Microphone timeout - Speech API not starting")
@@ -116,12 +113,10 @@ export default function Words() {
       const cleanTranscript = transcript.replace(/[!?.]/g, '').toLowerCase()
       const cleanTarget = currentWord.word.replace(/[!?.]/g, '').toLowerCase()
 
-      // Comparaison simple pour l'instant
-      if (cleanTranscript === cleanTarget || transcript.includes(currentWord.word)) {
-         showPopup("Bravo ! Prononciation correcte 🎉", 'success')
-         // Petit gain d'XP pour la prononciation ?
-         await addXP(5)
-      } else {
+       if (cleanTranscript === cleanTarget || transcript.includes(currentWord.word)) {
+          showPopup("Bravo ! Prononciation correcte 🎉", 'success')
+          await addXP(5)
+       } else {
          showPopup(`Entendu: "${transcript}". Essaie encore !`, 'warning')
       }
     }
@@ -193,7 +188,6 @@ export default function Words() {
     utterance.rate = 0.8;
 
     const voices = window.speechSynthesis.getVoices()
-    // Tentaive de trouver la voix spécifique ou une voix de la langue
     const targetVoice = voices.find(v => v.lang === targetCode) 
                      || voices.find(v => v.lang.startsWith(targetCode.split('-')[0]));
 

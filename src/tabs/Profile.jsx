@@ -31,7 +31,6 @@ export default function Profile() {
         <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('profile.title')}</h2>
       </header>
 
-      {/* Avatar + Infos */}
       <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-lg mb-6 border border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-black shadow-lg">
@@ -44,7 +43,6 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] text-center shadow-lg border border-slate-200 dark:border-slate-700">
           <p className="text-3xl font-black text-blue-600 dark:text-blue-400">{languageProfile.level}</p>
@@ -60,7 +58,6 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Paramètres */}
       <div className="space-y-4">
         <button 
           onClick={() => setShowSettings(!showSettings)} 
@@ -76,7 +73,6 @@ export default function Profile() {
         {showSettings && (
           <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] space-y-6 border border-slate-200 dark:border-slate-700 shadow-lg">
             
-            {/* 1. Thème */}
             <div className="flex justify-between items-center">
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-slate-800 dark:text-white">{t('profile.dark_mode')}</span>
@@ -92,7 +88,6 @@ export default function Profile() {
 
             <hr className="border-slate-200 dark:border-slate-700" />
 
-            {/* 2. Langue de l'Interface */}
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase">{t('profile.app_lang')}</label>
               <div className="grid grid-cols-3 gap-2">
@@ -115,7 +110,6 @@ export default function Profile() {
 
             <hr className="border-slate-200 dark:border-slate-700" />
 
-            {/* 3. Langue Cible */}
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase">{t('profile.learning_lang')}</label>
               <div className="grid grid-cols-3 gap-2">

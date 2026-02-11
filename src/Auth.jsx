@@ -3,22 +3,20 @@ import { supabase } from './supabaseClient'
 import { AppProvider, useApp } from './AppContext'
 import Popup from './Popup'
 
-// Composant interne qui utilise le contexte
+
 function AuthContent() {
-  const { showPopup } = useApp() // Utilisation du hook
+  const { showPopup } = useApp()
   const [loading, setLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
-  const [showOTP, setShowOTP] = useState(false) // NOUVEAU : Afficher l'écran de code
+  const [showOTP, setShowOTP] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
   const [targetLang, setTargetLang] = useState('Coréen')
-  const [otp, setOtp] = useState('') // NOUVEAU : Stocker le code OTP
+  const [otp, setOtp] = useState('')
 
-  // Validation mot de passe
   const validatePassword = (pwd) => {
     if (pwd.length < 8) return "8 caractères minimum."
-    // ... tes autres règles ...
     return null
   }
 
@@ -28,7 +26,6 @@ function AuthContent() {
 
     try {
       if (isSignUp) {
-        // --- INSCRIPTION ---
         const errorMsg = validatePassword(password)
         if (errorMsg) throw new Error(errorMsg)
 
@@ -46,7 +43,6 @@ function AuthContent() {
         
         if (error) throw error
         
-        // Si l'inscription réussit, on montre l'écran OTP
         if (data.user && !data.session) {
           setShowOTP(true)
           showPopup("Code envoyé ! Vérifie ta boîte mail.", "info")
@@ -55,7 +51,6 @@ function AuthContent() {
         }
 
       } else {
-        // --- CONNEXION ---
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
       }
@@ -66,7 +61,6 @@ function AuthContent() {
     }
   }
 
-  // Fonction pour vérifier le code OTP
   const verifyOtp = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -85,7 +79,6 @@ function AuthContent() {
     }
   }
 
-  // --- ÉCRAN DE SAISIE DU CODE OTP ---
   if (showOTP) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-[#F8FAFC]">
@@ -118,7 +111,6 @@ function AuthContent() {
     )
   }
 
-  // --- ÉCRAN LOGIN / SIGNUP CLASSIQUE ---
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-[#F8FAFC]">
       <div className="w-full max-w-md bg-white p-10 rounded-[3rem] shadow-xl shadow-blue-900/5 border border-slate-100 animate-slide-up">
@@ -187,7 +179,6 @@ function AuthContent() {
   )
 }
 
-// Composant Wrapper qui fournit le contexte
 export default function Auth() {
   return (
     <AppProvider>

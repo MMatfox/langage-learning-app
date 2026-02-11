@@ -123,7 +123,6 @@ export default function JapaneseAlphabet() {
     utterance.lang = 'ja-JP'
     utterance.rate = 0.8
     
-    // Fallback voix japonaises
     const voices = window.speechSynthesis.getVoices()
     const jpVoice = voices.find(v => v.lang === 'ja-JP') || voices.find(v => v.lang.startsWith('ja'))
     if (jpVoice) utterance.voice = jpVoice
@@ -145,7 +144,6 @@ export default function JapaneseAlphabet() {
         <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight leading-tight">Alphabets Japonais</h2>
         <p className="text-slate-400 dark:text-slate-500 text-sm font-medium mt-2">Appuyez pour écouter</p>
         
-        {/* Onglets internes pour simplifier l'affichage car trop de données */}
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl mt-6">
             {['hiragana', 'katakana', 'kanji'].map(tab => (
                 <button

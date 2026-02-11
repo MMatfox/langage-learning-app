@@ -13,11 +13,9 @@ export default function Lessons() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [score, setScore] = useState(0)
   
-  // NOUVEAU : État pour le mot sélectionné (popup)
   const [selectedWord, setSelectedWord] = useState(null)
   const [regeneratingQuiz, setRegeneratingQuiz] = useState(false)
 
-  // --- CHARGEMENT ---
   useEffect(() => {
     const loadLesson = async () => {
       if (!profile?.target_language) return
@@ -30,7 +28,7 @@ export default function Lessons() {
         .from('lessons')
         .select('*')
         .eq('user_id', user.id)
-        .eq('language', profile.target_language) // Filtrer par langue cible
+        .eq('language', profile.target_language)
         .eq('completed', false)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -46,7 +44,6 @@ export default function Lessons() {
     loadLesson()
   }, [profile?.target_language])
 
-  // --- GÉNÉRATION ---
   const fetchLesson = async () => {
     setLoading(true)
     try {
@@ -71,7 +68,6 @@ export default function Lessons() {
 
       if (error) throw error
       
-      // Sauvegarde vocabulaire
       if (aiContent.vocabulary && aiContent.vocabulary.length > 0) {
         const { data: existingWords } = await supabase.from('learned_words').select('word').eq('user_id', user.id);
         const existingSet = new Set(existingWords?.map(w => w.word));
@@ -107,19 +103,16 @@ export default function Lessons() {
     }
   }
 
-  // --- QUIZ ---
   const handleAnswer = (option) => {
     if (quizFeedback) return
     setSelectedAnswer(option)
     const currentQ = currentLesson.content.quiz[currentQuestionIndex]
     
-    // Normalisation pour comparaison
     const cleanOption = typeof option === 'string' ? option.trim() : option
     const cleanAnswer = typeof currentQ.answer === 'string' ? currentQ.answer.trim() : currentQ.answer
 
     let isCorrect = cleanOption === cleanAnswer;
 
-    // Fallback pour compatibilité avec anciennes leçons
     if (!isCorrect && typeof cleanAnswer === 'string' && cleanAnswer.length === 1) {
         const index = currentQ.options.findIndex(o => o === option);
         const upperAnswer = cleanAnswer.toUpperCase();
@@ -152,38 +145,28 @@ export default function Lessons() {
   }
 
   const finishQuiz = async () => {
-    // Validation : Il faut 8/10 (ou 80% si le nombre de questions change)
-    const quizLength = currentLesson.content.quiz.length
-    const threshold = Math.ceil(quizLength * 0.8) // 80% requis
+    const threshold = Math.ceil(quizLength * 0.8)
 
     if (score >= threshold) {
-        // SUCCÈS
         const { error } = await supabase.from('lessons').update({ completed: true }).eq('id', currentLesson.id)
         if (!error) {
             const xpEarned = 50 + (score * 2);
-            await addXP(xpEarned) // Utiliser le contexte pour update UI
+            await addXP(xpEarned)
             showPopup(`Leçon validée ! ${score}/${quizLength} (+${xpEarned} XP) 🎓`, "success")
             setCurrentLesson(null) 
         }
     } else {
-        // ÉCHEC -> Regénération
         showPopup(`Score insuffisant (${score}/${quizLength}). Il faut ${threshold}/${quizLength}. Nouveau quiz en approche...`, "info")
         setRegeneratingQuiz(true)
         
         try {
             const newQuiz = await generateRevisionQuiz(currentLesson.content.title, currentLesson.content.vocabulary, 10)
-            
-            // Mise à jour locale (et optionnellement BDD si on voulait persister le nouveau quiz, mais pas strictement nécessaire pour le flux)
-            // On met à jour le contenu de la leçon en mémoire
             const newContent = { ...currentLesson.content, quiz: newQuiz }
             
-            // On met à jour en base pour que si l'utilisateur quitte, il ait le nouveau quiz ?
-            // C'est mieux pour l'expérience utilisateur.
             await supabase.from('lessons').update({ content: newContent }).eq('id', currentLesson.id)
 
             setCurrentLesson({ ...currentLesson, content: newContent })
             
-            // Reset state
             setCurrentQuestionIndex(0)
             setScore(0)
             setQuizFeedback(null)
@@ -199,7 +182,6 @@ export default function Lessons() {
     }
   }
 
-  // --- DICTION ---
   const speak = (text) => {
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(text)
@@ -229,7 +211,6 @@ export default function Lessons() {
     window.speechSynthesis.speak(utterance)
   }
 
-  // --- AFFICHAGE SÉCURISÉ ---
   const renderSafeContent = (content) => {
     if (content === null || content === undefined) return null;
 // ... (rest of renderSafeContent remains unchanged, but I need to target correctly to insert speak before it)
@@ -279,7 +260,6 @@ export default function Lessons() {
         <div className="space-y-6 animate-fade-in">
           {!quizStarted ? (
             <>
-              {/* THÉORIE */}
               <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
                 <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">{t('lessons.theory')}</span>
                 <h3 className="text-2xl font-black text-slate-800 mt-3 mb-4">{lessonData.title}</h3>
@@ -288,7 +268,6 @@ export default function Lessons() {
                 </div>
               </div>
 
-              {/* VOCABULAIRE INTERACTIF */}
               <div className="grid gap-3">
                 <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest ml-2">
                   {t('lessons.vocabulary_title')}
@@ -296,13 +275,12 @@ export default function Lessons() {
                 {Array.isArray(lessonData.vocabulary) && lessonData.vocabulary.map((v, i) => (
                   <div 
                     key={i} 
-                    onClick={() => setSelectedWord(v)} // OUVRE LE MODAL
+                    onClick={() => setSelectedWord(v)}
                     className="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-50 cursor-pointer active:scale-95 transition-transform hover:border-blue-300 group"
                   >
                     <div>
                         <span className="font-bold text-xl text-slate-800 block group-hover:text-blue-600 transition-colors">
                           {v.kr}
-                          {/* Petit indicateur d'info */}
                           <span className="ml-2 text-[10px] bg-blue-100 text-blue-500 px-1.5 py-0.5 rounded-full align-middle">i</span>
                         </span>
                         {v.romanization && <span className="text-xs text-blue-400 italic block">{v.romanization}</span>}
@@ -366,7 +344,6 @@ export default function Lessons() {
         </div>
       )}
 
-      {/* --- MODAL DE DÉTAILS DU MOT --- */}
       {selectedWord && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-fade-in">
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-slide-up relative">

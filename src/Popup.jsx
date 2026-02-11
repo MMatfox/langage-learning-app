@@ -5,7 +5,6 @@ export default function Popup() {
 
   if (!popup.isOpen) return null
 
-  // Définition des couleurs et icônes selon le type
   const styles = {
     info: {
       bg: 'bg-blue-600',

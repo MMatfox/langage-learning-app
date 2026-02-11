@@ -17,7 +17,6 @@ function Home() {
   return (
     <div className="p-6 pb-28 max-w-md mx-auto space-y-8 animate-fade-in relative">
       
-      {/* HEADER */}
       <header className="flex justify-between items-center pt-4">
         <div>
           <p className="text-slate-400 dark:text-slate-500 text-sm font-bold uppercase tracking-wider mb-1">{t('home.welcome')},</p>
@@ -33,7 +32,6 @@ function Home() {
         </div>
       </header>
       
-      {/* NIVEAU & PROGRESSION */}
       <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-700 relative overflow-hidden">
         <div className="flex justify-between items-end mb-4 relative z-10">
           <div>
@@ -46,7 +44,6 @@ function Home() {
           </div>
         </div>
 
-        {/* Barre de progression */}
         <div className="space-y-2 relative z-10">
           <div className="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
             <span>{currentLevelProgress} XP</span>
@@ -65,12 +62,10 @@ function Home() {
           </p>
         </div>
 
-        {/* Décoration background */}
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-50 dark:bg-blue-900/20 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-purple-50 dark:bg-purple-900/20 rounded-full blur-3xl pointer-events-none"></div>
       </div>
 
-      {/* Encouragement / Citation */}
       <div className="bg-gradient-to-br from-blue-600 to-purple-700 p-6 rounded-[2rem] shadow-lg shadow-blue-900/20 text-white relative overflow-hidden">
         <div className="relative z-10 flex items-center gap-4">
           <span className="text-4xl">🚀</span>
@@ -84,7 +79,6 @@ function Home() {
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
       </div>
 
-      {/* ACTIONS PRINCIPALES */}
       <div className="space-y-4">
         <div className="flex items-center justify-between px-2">
           <h2 className="text-lg font-black text-slate-800 dark:text-white">{t('home.ready')}</h2>
