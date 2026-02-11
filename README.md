@@ -2,7 +2,7 @@
 
 Une application web moderne et interactive conçue pour faciliter l'apprentissage des langues (actuellement optimisée pour le **Coréen** 🇰🇷 et le **Japonais** 🇯🇵). Utilisant la puissance de l'Intelligence Artificielle (**Mistral AI**) et une infrastructure robuste (**Supabase**), elle offre une expérience d'apprentissage personnalisée.
 
-![Aperçu de l'application](public/screenshot.png) <!-- N'oubliez pas d'ajouter une capture d'écran si possible -->
+![Aperçu de l'application](https://langage-learning-app.vercel.app)
 
 ## ✨ Fonctionnalités Clés
 
