@@ -10,7 +10,7 @@ export default defineConfig({
       manifest: {
         name: 'Langage Learning App',
         short_name: 'LangApp',
-        theme_color: '#2563eb', // Le bleu qu'on a utilisé
+        theme_color: '#2563eb',
         icons: [
           {
             src: 'pwa-192x192.png',

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
-import { generateNewWord } from '../services/aiService'
+import { generateNewWord, updateWordTranslation } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Words() {
-  const { profile, addXP, t, showPopup } = useApp()
+  const { profile, addXP, t, showPopup, askConfirmation } = useApp()
   const [currentWord, setCurrentWord] = useState(null)
   const [words, setWords] = useState([])
   const [loading, setLoading] = useState(true)
@@ -23,14 +23,29 @@ export default function Words() {
 
 
 
-  const recognitionRef = useRef(null)
+  const toggleListening = async (e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
 
-  const toggleListening = async () => {
+    // Gestion du stop
     if (isListening || isStarting) {
-      recognitionRef.current?.stop()
+      try {
+        recognitionRef.current?.stop()
+        recognitionRef.current = null
+      } catch (err) {
+        console.warn("Stop error:", err)
+      }
       setIsListening(false)
       setIsStarting(false)
       return
+    }
+
+    // Vérification HTTPS (Crutial pour mobile)
+    if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+       showPopup("Le micro nécessite une connexion HTTPS sécurisée.", 'error')
+       return
     }
 
     setIsStarting(true)
@@ -44,7 +59,7 @@ export default function Words() {
       console.error("Hardware Mic Error:", err)
       setIsStarting(false)
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-         showPopup("Permission micro refusée au niveau du navigateur.", 'error')
+         showPopup("Permission micro refusée (vérifiez les paramètres du navigateur/OS).", 'error')
       } else if (err.name === 'NotFoundError') {
          showPopup("Aucun microphone détecté.", 'error')
       } else {
@@ -75,13 +90,14 @@ export default function Words() {
     recognition.lang = langMap[profile?.target_language] || 'ko-KR'     
     recognition.continuous = false
     recognition.interimResults = false
+    recognition.maxAlternatives = 1
     
     const safetyTimeout = setTimeout(() => {
       if (recognitionRef.current === recognition) {
         console.error("Microphone timeout - Speech API not starting")
         recognition.abort()
         setIsStarting(false)
-        showPopup("Service vocal inaccessible. Utilisez une autre méthode.", 'warning')
+        showPopup("Service vocal inaccessible. Vérifiez votre connexion.", 'warning')
       }
     }, 8000)
 
@@ -102,9 +118,9 @@ export default function Words() {
       console.error("Micro Error:", e.error)
       setIsListening(false)
       setIsStarting(false)
-      if (e.error === 'not-allowed') showPopup("Permission micro refusée !", 'error')
+      if (e.error === 'not-allowed') showPopup("Permission refusée.", 'error')
       else if (e.error === 'no-speech') showPopup("Aucune parole détectée.", 'info')
-      else if (e.error === 'network') showPopup("Erreur réseau (Speech API).", 'error')
+      else if (e.error === 'network') showPopup("Erreur réseau (HTTPS requis ?).", 'error')
       else showPopup(`Erreur micro: ${e.error}`, 'error')
     }
 
@@ -219,7 +235,32 @@ export default function Words() {
         .eq('language', profile.target_language)
         .maybeSingle()
       
-      const aiData = await generateNewWord(excludeList, langProfile?.level || 1)
+      let aiData = null
+      let attempts = 0
+      const maxAttempts = 20
+      let isDuplicate = true
+
+      while (isDuplicate && attempts < maxAttempts) {
+        attempts++
+        try {
+          aiData = await generateNewWord(excludeList, langProfile?.level || 1)
+          
+          // Check locale duplication (case insensitive)
+          const newWordLower = aiData.word.trim().toLowerCase()
+          if (!excludeList.some(w => w.trim().toLowerCase() === newWordLower)) {
+            isDuplicate = false
+          } else {
+             console.log(`Doublon détecté (tentative ${attempts}): ${aiData.word}`)
+          }
+        } catch (err) {
+           console.error("Erreur tentative:", err)
+        }
+      }
+
+      if (isDuplicate || !aiData) {
+        showPopup("Impossible de générer un mot unique pour l'instant. Réessaie !", 'warning')
+        return
+      }
       
       const { data: savedWord, error } = await supabase.from('learned_words').insert([
         { 
@@ -241,6 +282,52 @@ export default function Words() {
     } catch (error) {
       console.error("Erreur génération:", error)
       showPopup(t('words.ai_error'), 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteWord = (id, wordText) => {
+    askConfirmation(
+      `Es-tu sûr de vouloir supprimer le mot "${wordText}" définitivement ?`,
+      async () => {
+        const { error } = await supabase.from('learned_words').delete().eq('id', id)
+        if (!error) {
+          showPopup("Mot supprimé.", "success")
+          if (currentWord?.id === id) setCurrentWord(null)
+          setWords(prev => prev.filter(w => w.id !== id))
+        } else {
+          showPopup("Erreur lors de la suppression.", "error")
+        }
+      }
+    )
+  }
+
+  const handleRefreshTranslation = async () => {
+    if (!currentWord) return
+    setLoading(true)
+    try {
+      const updatedData = await updateWordTranslation(currentWord)
+      
+      const { error } = await supabase
+        .from('learned_words')
+        .update({
+          translation: updatedData.translation,
+          romanization: updatedData.romanization,
+          example_kr: updatedData.example_kr,
+          example_fr: updatedData.example_fr // Convention naming 'fr' = 'ui_lang' in DB schema context effectively
+        })
+        .eq('id', currentWord.id)
+
+      if (error) throw error
+      
+      setCurrentWord({ ...currentWord, ...updatedData })
+      showPopup(t('words.updated'), 'success')
+      fetchLearnedWords() // Refresh list display too
+
+    } catch (e) {
+      console.error(e)
+      showPopup("Erreur mise à jour traduction.", 'error')
     } finally {
       setLoading(false)
     }
@@ -286,8 +373,8 @@ export default function Words() {
   )
 
   if (!currentWord) return (
-    <div className="p-6 pb-28 max-w-md mx-auto">
-      <header className="pt-8 mb-8">
+    <div className="p-6 pb-40 pt-4 max-w-md mx-auto">
+      <header className="mb-8">
         <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('words.title')}</h2>
         <p className="text-slate-600 dark:text-slate-300 text-sm mt-2">{t('words.desc', profile.target_language)}</p>
       </header>
@@ -303,12 +390,21 @@ export default function Words() {
           <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-3">{t('words.recent')} ({words.length})</h3>
           <div className="space-y-2">
             {words.map(w => (
-              <div key={w.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center">
+              <div key={w.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center group">
                 <div>
                   <span className="font-bold text-slate-800 dark:text-white">{w.word}</span>
                   <span className="text-slate-500 dark:text-slate-400 text-xs ml-2">{w.translation}</span>
                 </div>
-                <span className="text-xs text-slate-400 dark:text-slate-500">{w.mastery_level}%</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">{w.mastery_level}%</span>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleDeleteWord(w.id, w.word) }}
+                    className="text-slate-300 hover:text-red-500 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
+                    title="Supprimer"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -318,13 +414,21 @@ export default function Words() {
   )
 
   return (
-    <div className="p-6 pb-28 max-w-md mx-auto">
-      <header className="pt-8 mb-6">
+    <div className="p-6 pb-40 pt-4 max-w-md mx-auto">
+      <header className="mb-6">
         <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('words.title')}</h2>
       </header>
 
       <div className="bg-white dark:bg-slate-800 p-8 rounded-[3rem] shadow-xl border border-slate-200 dark:border-slate-700 mb-6">
-        <div className="text-center mb-6">
+        <div className="text-center mb-6 relative">
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleDeleteWord(currentWord.id, currentWord.word)}}
+            className="absolute left-0 top-0 text-slate-300 hover:text-red-500 transition-colors p-2"
+            title="Supprimer ce mot"
+          >
+            ✕
+          </button>
+          
           <button 
             onClick={() => speak(currentWord.word)}
             className="text-6xl font-black text-slate-800 dark:text-white mb-2 active:scale-95 transition-transform"
@@ -334,8 +438,15 @@ export default function Words() {
           <p className="text-blue-600 dark:text-blue-400 text-sm font-bold">{currentWord.romanization}</p>
         </div>
 
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl mb-4">
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl mb-4 relative group">
           <p className="text-slate-800 dark:text-white font-bold text-center">{currentWord.translation}</p>
+          <button 
+            onClick={handleRefreshTranslation}
+            className="absolute right-2 top-2 p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 bg-white/50 dark:bg-black/20 rounded-full transition-all opacity-50 group-hover:opacity-100"
+            title="Mettre à jour la traduction (si langue changée)"
+          >
+            ↻
+          </button>
         </div>
 
         {currentWord.example_kr && (
@@ -378,6 +489,29 @@ export default function Words() {
           ➡️ {t('words.next')}
         </button>
       </div>
+
+      {/* OVERLAY D'ÉCOUTE (Style Tutor) */}
+      {isListening && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex flex-col items-center justify-center animate-fade-in backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-full shadow-2xl animate-pulse relative">
+            <span className="text-6xl">🎤</span>
+            <div className="absolute inset-0 border-4 border-blue-400 rounded-full animate-ping opacity-20"></div>
+          </div>
+          <p className="text-white font-black text-2xl mt-8 tracking-widest uppercase animate-bounce">{t('words.speaking')}</p>
+          <p className="text-white/80 text-sm mt-2 font-medium">Prononcez : "{currentWord?.word}"</p>
+          
+          <button 
+            onClick={() => { 
+                try { recognitionRef.current?.stop() } catch(e){}
+                setIsListening(false) 
+                setIsStarting(false)
+            }} 
+            className="mt-12 bg-white/20 hover:bg-white/30 text-white px-8 py-3 rounded-full font-bold backdrop-blur-md border border-white/30 transition-all active:scale-95"
+          >
+            Annuler
+          </button>
+        </div>
+      )}
     </div>
   )
 }

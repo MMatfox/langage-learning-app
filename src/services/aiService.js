@@ -29,10 +29,27 @@ const getUserPreferences = async () => {
 export const generateNewWord = async (alreadyLearnedWords, userLevel) => {
   const { target, ui } = await getUserPreferences();
 
+  const nbLearned = alreadyLearnedWords.length;
+  // On limite la liste envoyée au prompt pour éviter de saturer le contexte (les doublons sont revérifiés côté client)
+  const exclusionListPrompt = alreadyLearnedWords.slice(0, 200).join(", ") + (nbLearned > 200 ? "..." : "");
+
+  const complexityInstruction = nbLearned < 60 
+    ? "C'est un VRAI DÉBUTANT. Donne un mot ESSENTIEL simple et courant (Ex: maison, manger, eau, mère, grand, froid). Évite les mots abstraits."
+    : nbLearned < 300
+    ? "Niveau débutant. Donne un mot de la vie quotidienne (vie active, ville, émotions simples)."
+    : "Niveau intermédiaire. Donne un mot utile pour des conversations variées.";
+
   const prompt = `
     Agis comme un professeur expert.
-    Génère un NOUVEAU mot en ${target} pour un élève de niveau ${userLevel}.
-    Exclus ces mots : ${alreadyLearnedWords.join(", ")}.
+    
+    TÂCHE : Génère un seul NOUVEAU mot en ${target}.
+    CONTEXTE : L'élève a déjà appris ${nbLearned} mots.
+    INSTRUCTION DE DIFFICULTÉ : ${complexityInstruction}
+    
+    RÈGLES ABSOLUES :
+    1. EXCLUSION IMPORTANTE : Évite les mots de cette liste : ${exclusionListPrompt}.
+    2. Si les basiques sont pris, cherche : couleurs, chiffres, animaux, vêtements, verbes d'action.
+    3. PAS DE DOUBLONS.
     
     L'utilisateur parle ${ui}. Fournis la traduction et les exemples en ${ui}.
     
@@ -41,7 +58,7 @@ export const generateNewWord = async (alreadyLearnedWords, userLevel) => {
       "word": "Mot en ${target}",
       "romanization": "Prononciation/Romanisation (si applicable, sinon vide)",
       "translation": "Traduction en ${ui}",
-      "example_kr": "Phrase d'exemple en ${target}",
+      "example_kr": "Phrase d'exemple très simple en ${target}",
       "example_fr": "Traduction de la phrase en ${ui}"
     }
   `;
@@ -230,6 +247,106 @@ export const generateRevisionQuiz = async (lessonTitle, vocabulary, count = 3) =
     return Array.isArray(content) ? content : (content.questions || content.quiz || []);
   } catch (error) {
     console.error("Erreur Quiz:", error);
+    throw error;
+  }
+};
+
+// 5. METTRE À JOUR LA TRADUCTION D'UN MOT (Changement de langue)
+export const updateWordTranslation = async (wordData) => {
+  const { target, ui } = await getUserPreferences();
+  
+  const prompt = `
+    Tu es un professeur expert de ${target}.
+    L'utilisateur parle maintenant ${ui}.
+    
+    Mets à jour la fiche du mot : "${wordData.word}".
+    
+    Fournis :
+    1. La "translation" en ${ui}.
+    2. "example_kr" (une phrase d'exemple en ${target}).
+    3. "example_fr" (la traduction de l'exemple en ${ui}).
+    4. "romanization" (mise à jour si besoin).
+    
+    Réponds UNIQUEMENT avec ce JSON :
+    {
+      "translation": "...",
+      "romanization": "...",
+      "example_kr": "...",
+      "example_fr": "..."
+    }
+  `;
+
+  try {
+    const response = await fetch(BASE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+      body: JSON.stringify({
+        model: "open-mistral-7b",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" }
+      })
+    });
+    const data = await response.json();
+    return JSON.parse(data.choices[0].message.content);
+  } catch (error) {
+    console.error("Erreur Update Word:", error);
+    throw error;
+  }
+};
+
+// 6. METTRE À JOUR UNE LEÇON (Changement de langue)
+export const updateLessonContent = async (oldLessonTitle, userLevel = 1) => {
+  const { target, ui } = await getUserPreferences();
+  
+  const prompt = `
+    Tu es un professeur de ${target}. L'élève parle maintenant ${ui}.
+    Recrée le contenu de la leçon : "${oldLessonTitle}".
+    
+    RÈGLES :
+    1. "explanation": Explique le sujet en ${ui} (pédagogique et clair).
+    2. "vocabulary": Fournis de nouveau le vocabulaire clé (10-15 mots) pour ce sujet, avec traductions/explications en ${ui}.
+    
+    Réponds UNIQUEMENT avec ce JSON :
+    {
+      "title": "${oldLessonTitle}",
+      "explanation": "...",
+      "vocabulary": [
+        {
+          "kr": "...", 
+          "romanization": "...", 
+          "fr": "traduction en ${ui}",
+          "details": "...",
+          "context": "..."
+        }
+      ]
+    }
+  `;
+
+  try {
+    const response = await fetch(BASE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+      body: JSON.stringify({
+        model: "open-mistral-7b",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 4000,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    const data = await response.json();
+    let content = JSON.parse(data.choices[0].message.content);
+    
+    // Nettoyage format
+    if (typeof content.explanation !== 'string') {
+      content.explanation = typeof content.explanation === 'object' 
+        ? Object.values(content.explanation).join('\n\n') 
+        : String(content.explanation);
+    }
+    
+    return content;
+  } catch (error) {
+    console.error("Erreur Update Lesson:", error);
     throw error;
   }
 };

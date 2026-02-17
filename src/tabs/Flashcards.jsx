@@ -79,7 +79,7 @@ export default function Flashcards() {
   )
 
   if (cards.length === 0) return (
-    <div className="p-6 pb-28 flex flex-col items-center justify-center h-full max-w-md mx-auto text-center">
+    <div className="p-6 pb-28 pt-4 flex flex-col items-center justify-center h-full max-w-md mx-auto text-center">
       <div className="text-6xl mb-4">📭</div>
       <p className="text-slate-800 dark:text-white font-black text-xl mb-2">{t('flashcards.empty_title')}</p>
       <p className="text-slate-500 dark:text-slate-400 text-sm">{t('flashcards.empty_desc')}</p>
@@ -89,11 +89,11 @@ export default function Flashcards() {
   const currentCard = cards[currentIndex]
 
   return (
-    <div className="p-6 pb-28 flex flex-col items-center h-full pt-8 max-w-md mx-auto">
-      <header className="text-center mb-8 w-full">
-        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('flashcards.title')}</h2>
+    <div className="p-6 pb-24 flex flex-col items-center h-full pt-2 max-w-md mx-auto justify-center">
+      <header className="text-center mb-4 w-full">
+        <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">{t('flashcards.title')}</h2>
         
-        <div className="flex gap-1 mt-4 justify-center h-1.5 w-full max-w-[200px] mx-auto">
+        <div className="flex gap-1 mt-3 justify-center h-1.5 w-full max-w-[200px] mx-auto">
           {cards.map((_, i) => (
             <div 
               key={i} 
@@ -105,7 +105,7 @@ export default function Flashcards() {
         </div>
       </header>
 
-      <div className="relative w-full aspect-[3/4] max-h-[400px]" style={{ perspective: '1000px' }}>
+      <div className="relative w-full aspect-[4/5] max-h-[55vh]" style={{ perspective: '1000px' }}>
         <div 
           onClick={() => setIsFlipped(!isFlipped)}
           className={`w-full h-full relative cursor-pointer transition-all duration-500 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}
@@ -115,7 +115,7 @@ export default function Flashcards() {
             className="absolute inset-0 bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center p-6 backface-hidden"
             style={{ backfaceVisibility: 'hidden' }}
           >
-            <span className="text-5xl font-black text-slate-800 dark:text-white text-center leading-tight">
+            <span className="text-4xl font-black text-slate-800 dark:text-white text-center leading-tight">
               {currentCard.word}
             </span>
             <p className="mt-8 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest animate-pulse">
@@ -172,7 +172,7 @@ export default function Flashcards() {
       </div>
 
       <div 
-        className={`flex gap-4 mt-8 w-full transition-all duration-300 ${
+        className={`flex gap-4 mt-6 w-full transition-all duration-300 ${
           isFlipped ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
         }`}
       >
@@ -190,7 +190,7 @@ export default function Flashcards() {
         </button>
       </div>
       
-      <p className="mt-6 text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest">
+      <p className="mt-4 text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest">
         {t('flashcards.card_count', currentIndex + 1, cards.length)}
       </p>
     </div>
