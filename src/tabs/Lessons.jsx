@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
-import { generateNewLesson, generateRevisionQuiz } from '../services/aiService'
+import { generateNewLesson, generateRevisionQuiz, updateLessonContent } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Lessons() {
-  const { profile, t, showPopup, addXP } = useApp()
+  const { profile, t, showPopup, addXP, askConfirmation } = useApp()
   const [currentLesson, setCurrentLesson] = useState(null)
   const [loading, setLoading] = useState(true)
   const [quizStarted, setQuizStarted] = useState(false)
@@ -182,6 +182,75 @@ export default function Lessons() {
     }
   }
 
+
+
+  const handleUpdateLanguage = async () => {
+    if (!currentLesson) return
+    if (!confirm(t('lessons.confirm_update_lang'))) return
+
+    setLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: prof } = await supabase.from('language_profiles')
+        .select('level')
+        .eq('user_id', user.id)
+        .eq('language', profile.target_language)
+        .maybeSingle()
+      
+      // 1. Mettre à jour le contenu texte (Explication + Vocab)
+      const updatedContent = await updateLessonContent(currentLesson.title, prof?.level || 1)
+      
+      // 2. Regénérer le quiz avec la nouvelle langue
+      const newQuiz = await generateRevisionQuiz(updatedContent.title, updatedContent.vocabulary, 10)
+      
+      const finalContent = { ...updatedContent, quiz: newQuiz }
+      
+      const { error } = await supabase
+        .from('lessons')
+        .update({ content: finalContent })
+        .eq('id', currentLesson.id)
+
+      if (error) throw error
+      
+      setCurrentLesson({ ...currentLesson, content: finalContent })
+      showPopup(t('lessons.updated'), 'success')
+
+    } catch (e) {
+      console.error(e)
+      showPopup("Erreur mise à jour langue.", 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteWord = (wordText) => {
+    askConfirmation(
+        `Supprimer le mot "${wordText}" de votre liste ?`,
+        async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser()
+                
+                await supabase.from('learned_words')
+                    .delete()
+                    .eq('user_id', user.id)
+                    .eq('word', wordText)
+                    .eq('language', profile.target_language);
+
+                if (currentLesson && currentLesson.content && currentLesson.content.vocabulary) {
+                    const newVocab = currentLesson.content.vocabulary.filter(v => v.kr !== wordText);
+                    const newContent = { ...currentLesson.content, vocabulary: newVocab };
+                    setCurrentLesson({ ...currentLesson, content: newContent });
+                }
+                showPopup("Mot supprimé.", "success");
+
+            } catch (e) {
+                console.error(e);
+                showPopup("Erreur suppression mot.", "error");
+            }
+        }
+    );
+  }
+
   const speak = (text) => {
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(text)
@@ -262,7 +331,33 @@ export default function Lessons() {
             <>
               <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-700">
                 <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full">{t('lessons.theory')}</span>
-                <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-3 mb-4">{lessonData.title}</h3>
+                <div className="flex justify-between items-start mt-3 mb-4">
+                  <h3 className="text-2xl font-black text-slate-800 dark:text-white">{lessonData.title}</h3>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={handleUpdateLanguage}
+                      className="p-2 text-slate-400 hover:text-blue-600 bg-slate-50 dark:bg-slate-800 hover:bg-white rounded-xl transition-all"
+                      title={t('lessons.update_lang')}
+                    >
+                      🌍
+                    </button>
+                    <button 
+                        onClick={() => {
+                            askConfirmation(
+                                t('lessons.confirm_delete'),
+                                async () => {
+                                    await supabase.from('lessons').delete().eq('id', currentLesson.id)
+                                    setCurrentLesson(null)
+                                }
+                            )
+                        }} 
+                        className="p-2 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-800 hover:bg-white rounded-xl transition-all"
+                        title={t('lessons.delete')}
+                    >
+                        ✕
+                    </button>
+                  </div>
+                </div>
                 <div className="mt-4">
                   {renderSafeContent(lessonData.explanation)}
                 </div>
@@ -276,8 +371,18 @@ export default function Lessons() {
                   <div 
                     key={i} 
                     onClick={() => setSelectedWord(v)}
-                    className="bg-white dark:bg-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-50 dark:border-slate-700 cursor-pointer active:scale-95 transition-transform hover:border-blue-300 group"
+                    className="bg-white dark:bg-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-50 dark:border-slate-700 cursor-pointer active:scale-95 transition-transform hover:border-blue-300 group relative pr-10"
                   >
+                    <button 
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            handleDeleteWord(v.kr);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Supprimer ce mot"
+                    >
+                        ✕
+                    </button>
                     <div>
                         <span className="font-bold text-xl text-slate-800 dark:text-white block group-hover:text-blue-600 transition-colors">
                           {v.kr}

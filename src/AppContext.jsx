@@ -14,11 +14,33 @@ export function AppProvider({ children }) {
   const [popup, setPopup] = useState({ message: '', type: 'info', isOpen: false })
   const [tutorMessages, setTutorMessages] = useState([])
 
+  const [confirmState, setConfirmState] = useState({ 
+    isOpen: false, 
+    message: '', 
+    onConfirm: () => {}, 
+    onCancel: () => {} 
+  })
+
   const showPopup = (message, type = 'info') => {
     setPopup({ message, type, isOpen: true })
     setTimeout(() => {
       setPopup(prev => ({ ...prev, isOpen: false }))
     }, 3000)
+  }
+
+  const askConfirmation = (message, onConfirm, onCancel = () => {}) => {
+    setConfirmState({
+      isOpen: true,
+      message,
+      onConfirm: () => {
+        onConfirm()
+        setConfirmState(prev => ({ ...prev, isOpen: false }))
+      },
+      onCancel: () => {
+        onCancel()
+        setConfirmState(prev => ({ ...prev, isOpen: false }))
+      }
+    })
   }
 
   useEffect(() => {
@@ -252,10 +274,44 @@ export function AppProvider({ children }) {
     tutorMessages,
     setTutorMessages,
     getLevelFromXP,
-    getXPForLevel
+    setTutorMessages,
+    getLevelFromXP,
+    getXPForLevel,
+    askConfirmation
   }
 
-  return <AppContext.Provider value={activeTabValue}>{children}</AppContext.Provider>
+  return (
+    <AppContext.Provider value={activeTabValue}>
+      {children}
+      {confirmState.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-scale-up border-[3px] border-slate-100 dark:border-slate-800">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+              ⚠️
+            </div>
+            <h3 className="text-xl font-black text-center text-slate-800 dark:text-white mb-2">Attention</h3>
+            <p className="text-center text-slate-500 dark:text-slate-400 font-medium mb-8">
+              {confirmState.message}
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={confirmState.onCancel}
+                className="flex-1 py-4 rounded-xl font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={confirmState.onConfirm}
+                className="flex-1 py-4 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-200 dark:shadow-red-900/20 active:scale-95 transition-all"
+              >
+                Confirmer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </AppContext.Provider>
+  )
 }
 
 export function useApp() {

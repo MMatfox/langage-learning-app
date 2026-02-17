@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
-import { generateNewWord } from '../services/aiService'
+import { generateNewWord, updateWordTranslation } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Words() {
-  const { profile, addXP, t, showPopup } = useApp()
+  const { profile, addXP, t, showPopup, askConfirmation } = useApp()
   const [currentWord, setCurrentWord] = useState(null)
   const [words, setWords] = useState([])
   const [loading, setLoading] = useState(true)
@@ -235,7 +235,32 @@ export default function Words() {
         .eq('language', profile.target_language)
         .maybeSingle()
       
-      const aiData = await generateNewWord(excludeList, langProfile?.level || 1)
+      let aiData = null
+      let attempts = 0
+      const maxAttempts = 20
+      let isDuplicate = true
+
+      while (isDuplicate && attempts < maxAttempts) {
+        attempts++
+        try {
+          aiData = await generateNewWord(excludeList, langProfile?.level || 1)
+          
+          // Check locale duplication (case insensitive)
+          const newWordLower = aiData.word.trim().toLowerCase()
+          if (!excludeList.some(w => w.trim().toLowerCase() === newWordLower)) {
+            isDuplicate = false
+          } else {
+             console.log(`Doublon détecté (tentative ${attempts}): ${aiData.word}`)
+          }
+        } catch (err) {
+           console.error("Erreur tentative:", err)
+        }
+      }
+
+      if (isDuplicate || !aiData) {
+        showPopup("Impossible de générer un mot unique pour l'instant. Réessaie !", 'warning')
+        return
+      }
       
       const { data: savedWord, error } = await supabase.from('learned_words').insert([
         { 
@@ -257,6 +282,52 @@ export default function Words() {
     } catch (error) {
       console.error("Erreur génération:", error)
       showPopup(t('words.ai_error'), 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteWord = (id, wordText) => {
+    askConfirmation(
+      `Es-tu sûr de vouloir supprimer le mot "${wordText}" définitivement ?`,
+      async () => {
+        const { error } = await supabase.from('learned_words').delete().eq('id', id)
+        if (!error) {
+          showPopup("Mot supprimé.", "success")
+          if (currentWord?.id === id) setCurrentWord(null)
+          setWords(prev => prev.filter(w => w.id !== id))
+        } else {
+          showPopup("Erreur lors de la suppression.", "error")
+        }
+      }
+    )
+  }
+
+  const handleRefreshTranslation = async () => {
+    if (!currentWord) return
+    setLoading(true)
+    try {
+      const updatedData = await updateWordTranslation(currentWord)
+      
+      const { error } = await supabase
+        .from('learned_words')
+        .update({
+          translation: updatedData.translation,
+          romanization: updatedData.romanization,
+          example_kr: updatedData.example_kr,
+          example_fr: updatedData.example_fr // Convention naming 'fr' = 'ui_lang' in DB schema context effectively
+        })
+        .eq('id', currentWord.id)
+
+      if (error) throw error
+      
+      setCurrentWord({ ...currentWord, ...updatedData })
+      showPopup(t('words.updated'), 'success')
+      fetchLearnedWords() // Refresh list display too
+
+    } catch (e) {
+      console.error(e)
+      showPopup("Erreur mise à jour traduction.", 'error')
     } finally {
       setLoading(false)
     }
@@ -319,12 +390,21 @@ export default function Words() {
           <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-3">{t('words.recent')} ({words.length})</h3>
           <div className="space-y-2">
             {words.map(w => (
-              <div key={w.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center">
+              <div key={w.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center group">
                 <div>
                   <span className="font-bold text-slate-800 dark:text-white">{w.word}</span>
                   <span className="text-slate-500 dark:text-slate-400 text-xs ml-2">{w.translation}</span>
                 </div>
-                <span className="text-xs text-slate-400 dark:text-slate-500">{w.mastery_level}%</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">{w.mastery_level}%</span>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleDeleteWord(w.id, w.word) }}
+                    className="text-slate-300 hover:text-red-500 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
+                    title="Supprimer"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -340,7 +420,15 @@ export default function Words() {
       </header>
 
       <div className="bg-white dark:bg-slate-800 p-8 rounded-[3rem] shadow-xl border border-slate-200 dark:border-slate-700 mb-6">
-        <div className="text-center mb-6">
+        <div className="text-center mb-6 relative">
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleDeleteWord(currentWord.id, currentWord.word)}}
+            className="absolute left-0 top-0 text-slate-300 hover:text-red-500 transition-colors p-2"
+            title="Supprimer ce mot"
+          >
+            ✕
+          </button>
+          
           <button 
             onClick={() => speak(currentWord.word)}
             className="text-6xl font-black text-slate-800 dark:text-white mb-2 active:scale-95 transition-transform"
@@ -350,8 +438,15 @@ export default function Words() {
           <p className="text-blue-600 dark:text-blue-400 text-sm font-bold">{currentWord.romanization}</p>
         </div>
 
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl mb-4">
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl mb-4 relative group">
           <p className="text-slate-800 dark:text-white font-bold text-center">{currentWord.translation}</p>
+          <button 
+            onClick={handleRefreshTranslation}
+            className="absolute right-2 top-2 p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 bg-white/50 dark:bg-black/20 rounded-full transition-all opacity-50 group-hover:opacity-100"
+            title="Mettre à jour la traduction (si langue changée)"
+          >
+            ↻
+          </button>
         </div>
 
         {currentWord.example_kr && (

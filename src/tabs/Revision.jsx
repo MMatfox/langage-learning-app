@@ -4,7 +4,7 @@ import { generateRevisionQuiz } from '../services/aiService'
 import { useApp } from '../AppContext'
 
 export default function Revision() {
-  const { profile, addXP, t, showPopup } = useApp()
+  const { profile, addXP, t, showPopup, askConfirmation } = useApp()
   const [activeTab, setActiveTab] = useState('words')
   
   const [words, setWords] = useState([])
@@ -94,6 +94,38 @@ export default function Revision() {
       .update({ mastery_level: newMastery })
       .eq('id', id)
     if (!error) await addXP(5)
+  }
+
+  const handleDeleteWordRevision = (id, wordText) => {
+      askConfirmation(
+        `Supprimer définitivement le mot "${wordText}" ?`,
+        async () => {
+          const { error } = await supabase.from('learned_words').delete().eq('id', id);
+          if (!error) {
+              showPopup("Mot supprimé.", "success");
+              setWords(prev => prev.filter(w => w.id !== id));
+              if (selectedWord?.id === id) setSelectedWord(null);
+          } else {
+              showPopup("Erreur suppression.", "error");
+          }
+        }
+      );
+  }
+
+  const handleDeleteLesson = (id, title) => {
+      askConfirmation(
+        `Supprimer définitivement la leçon "${title}" ?`,
+        async () => {
+          const { error } = await supabase.from('lessons').delete().eq('id', id);
+          if (!error) {
+              showPopup("Leçon supprimée.", "success");
+              setLessons(prev => prev.filter(l => l.id !== id));
+              if (selectedLesson?.id === id) setSelectedLesson(null);
+          } else {
+              showPopup("Erreur suppression.", "error");
+          }
+        }
+      );
   }
 
   const startRevisionQuiz = async () => {
@@ -410,24 +442,43 @@ export default function Revision() {
                   <div className={`h-full transition-all ${word.mastery_level < 50 ? 'bg-orange-400' : 'bg-green-400'}`} style={{ width: `${Math.max(word.mastery_level, 5)}%` }}></div>
                 </div>
               </div>
-              <button onClick={() => boostMastery(word.id, word.mastery_level)} disabled={word.mastery_level >= 100} className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-lg active:scale-90 transition-all hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-50">
-                {word.mastery_level >= 100 ? '✅' : '🔥'}
-              </button>
+
+              <div className="flex flex-col gap-2 items-center">
+                  <button onClick={() => boostMastery(word.id, word.mastery_level)} disabled={word.mastery_level >= 100} className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-lg active:scale-90 transition-all hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-50">
+                    {word.mastery_level >= 100 ? '✅' : '🔥'}
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleDeleteWordRevision(word.id, word.word) }}
+                    className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 text-red-400 flex items-center justify-center text-xs hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                    title="Supprimer"
+                  >
+                    ✕
+                  </button>
+              </div>
             </div>
           )) : <p className="text-center text-slate-400 dark:text-slate-500 py-10">{t('revision.no_words')}</p>
         ) : (
           lessons.length > 0 ? lessons.map(l => (
             <div 
               key={l.id} 
+              className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700 flex justify-between items-center cursor-pointer active:scale-95 transition-all group hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-600"
               onClick={() => setSelectedLesson(l)}
-              className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700 cursor-pointer active:scale-95 transition-all group hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-600"
             >
-              <h4 className="text-lg font-black text-slate-800 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                {l.title || t('revision.untitled')}
-              </h4>
-              <p className="text-slate-400 dark:text-slate-500 text-xs">
-                {t('revision.completed_at')} {new Date(l.created_at).toLocaleDateString()}
-              </p>
+              <div>
+                  <h4 className="text-lg font-black text-slate-800 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    {l.title || t('revision.untitled')}
+                  </h4>
+                  <p className="text-slate-400 dark:text-slate-500 text-xs">
+                    {t('revision.completed_at')} {new Date(l.created_at).toLocaleDateString()}
+                  </p>
+              </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleDeleteLesson(l.id, l.title || 'Leçon') }}
+                className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-full text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
+                title="Supprimer la leçon"
+              >
+                ✕
+              </button>
             </div>
           )) : <p className="text-center text-slate-400 dark:text-slate-500 py-10">{t('revision.no_lessons')}</p>
         )}
@@ -436,12 +487,21 @@ export default function Revision() {
       {selectedWord && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedWord(null)}>
           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-slide-up relative text-left" onClick={e => e.stopPropagation()}>
-            <button 
-              onClick={() => setSelectedWord(null)}
-              className="absolute top-6 right-6 w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 font-bold flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700"
-            >
-              ✕
-            </button>
+            <div className="absolute top-6 right-6 flex gap-2">
+                 <button 
+                  onClick={() => { handleDeleteWordRevision(selectedWord.id, selectedWord.word || selectedWord.kr) }}
+                  className="w-8 h-8 bg-red-50 dark:bg-red-900/20 rounded-full text-red-400 font-bold flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/40"
+                  title="Supprimer"
+                >
+                  ✕
+                </button>
+                <button 
+                  onClick={() => setSelectedWord(null)}
+                  className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 font-bold flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700"
+                >
+                  ✕
+                </button>
+            </div>
 
             <div className="text-center mb-6">
               <h3 className="text-4xl font-black text-slate-800 dark:text-white mb-1">{selectedWord.kr}</h3>
