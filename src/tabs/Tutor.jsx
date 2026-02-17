@@ -4,7 +4,6 @@ import { useApp } from '../AppContext'
 
 export default function Tutor() {
   const { profile, t, showPopup, tutorMessages, setTutorMessages } = useApp()
-  // Utiliser le contexte pour les messages, sinon local (mais on veut persistance)
   const messages = tutorMessages || []
   const setMessages = setTutorMessages || (() => {})
 
@@ -15,7 +14,6 @@ export default function Tutor() {
   const chatEndRef = useRef(null)
   const recognitionRef = useRef(null) // Pour contrôler l'instance
 
-  // Configuration par langue
   const tutorConfig = {
     'Coréen': { name: 'Ji-min', langCode: 'ko-KR', helloKey: 'intro_ko' },
     'Japonais': { name: 'Yuki', langCode: 'ja-JP', helloKey: 'intro_jp' },
@@ -30,7 +28,6 @@ export default function Tutor() {
       setMessages([{ role: 'model', text: t(`tutor.${currentConfig.helloKey}`) }])
     }
     
-    // Cleanup audio quand on quitte l'onglet
     return () => {
       window.speechSynthesis.cancel()
       if (recognitionRef.current) {
@@ -52,13 +49,13 @@ export default function Tutor() {
     let targetCode = 'fr-FR'; 
 
     if (targetLang === 'Coréen') {
-        targetRegex = /([\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]+)/; // Hangeul
+        targetRegex = /([\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]+)/;
         targetCode = 'ko-KR';
     } else if (targetLang === 'Japonais') {
-        targetRegex = /([\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+)/; // Hiragana, Katakana, Kanji
+        targetRegex = /([\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+)/;
         targetCode = 'ja-JP';
     } else if (targetLang === 'Chinois') {
-        targetRegex = /([\u4E00-\u9FAF]+)/; // Hanzi
+        targetRegex = /([\u4E00-\u9FAF]+)/;
         targetCode = 'zh-CN';
     }
 
@@ -70,7 +67,6 @@ export default function Tutor() {
     };
     const fallbackCode = uiLangMap[profile?.ui_language] || 'fr-FR';
 
-    // Fonction helper pour trouver la voix
     const getVoice = (langCode) => {
       return voices.find(v => v.lang.replace('_', '-').includes(langCode.split('-')[0])) 
           || voices.find(v => v.lang.includes(langCode.substring(0, 2)));
@@ -78,12 +74,11 @@ export default function Tutor() {
 
     if (!targetRegex) {
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.voice = getVoice(fallbackCode); // Default fallback
+      utterance.voice = getVoice(fallbackCode);
       window.speechSynthesis.speak(utterance);
       return;
     }
 
-    // Découper le texte : partie cible vs reste (supposé français/anglais)
     const parts = text.split(targetRegex);
 
     parts.forEach(part => {
@@ -96,9 +91,9 @@ export default function Tutor() {
         const v = getVoice(targetCode);
         if (v) utterance.voice = v;
         utterance.lang = targetCode;
-        utterance.rate = 0.9; // Un peu plus lent pour la langue cible
+        utterance.rate = 0.9;
       } else {
-        const v = getVoice(fallbackCode); // Langue UI
+        const v = getVoice(fallbackCode);
         if (v) utterance.voice = v;
         utterance.lang = fallbackCode;
       }
@@ -107,7 +102,6 @@ export default function Tutor() {
     });
   };
 
-  // Ref pour gérer le retry
   const retryFallback = useRef(false)
 
   const toggleVoiceInput = async () => {
@@ -125,7 +119,6 @@ export default function Tutor() {
     retryFallback.current = false // Reset retry state
     window.speechSynthesis.cancel()
 
-    // 1. Hardware Check
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       stream.getTracks().forEach(track => track.stop()) 
@@ -161,19 +154,17 @@ export default function Tutor() {
     recognition.interimResults = false
     recognition.maxAlternatives = 1
 
-    // Timeout de sécurité
     const safetyTimeout = setTimeout(() => {
-      if (recognitionRef.current === recognition) {
+        if (recognitionRef.current === recognition) {
         console.error("Microphone timeout - Speech API not starting")
         recognition.abort()
         
-        // RETRY LOGIC
         if (!retryFallback.current && langCode !== 'fr-FR') {
             console.log("Timeout on target lang. Retrying with fallback...")
             retryFallback.current = true
             showPopup("Langue cible lente. Tentative en mode standard...", 'info')
             setTimeout(() => startRecognition('fr-FR'), 500)
-            return // Don't reset isStarting yet
+            return
         }
 
         setIsStarting(false)
@@ -192,7 +183,6 @@ export default function Tutor() {
       console.error("Micro Error:", e.error)
       clearTimeout(safetyTimeout)
       
-      // Si erreur de réseau ou langue non supportée, on tente le fallback
       if ((e.error === 'language-not-supported' || e.error === 'network') && !retryFallback.current && langCode !== 'fr-FR') {
           retryFallback.current = true
           showPopup("Problème de langue. Essai en français...", 'info')
@@ -212,7 +202,6 @@ export default function Tutor() {
     recognition.onend = () => {
       console.log("Micro ended")
       clearTimeout(safetyTimeout)
-      // Ne pas désactiver si on est en train de retry
       if (!retryFallback.current) {
          setIsListening(false)
          setIsStarting(false)
@@ -335,7 +324,6 @@ export default function Tutor() {
         </form>
       </div>
 
-      {/* OVERLAY D'ÉCOUTE ATTENDU PAR L'UTILISATEUR */}
       {isListening && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex flex-col items-center justify-center animate-fade-in backdrop-blur-sm">
           <div className="bg-white p-8 rounded-full shadow-2xl animate-pulse relative">

@@ -34,7 +34,6 @@ function App() {
 function AppContent() {
   const { profile, activeTab, setActiveTab, t } = useApp()
 
-  // Forcer l'application du thème à chaque changement
   useEffect(() => {
     if (profile?.theme) {
       if (profile.theme === 'dark') {
@@ -45,7 +44,6 @@ function AppContent() {
     }
   }, [profile?.theme])
 
-  // Redirection si on est sur Hangeul/Alphabet mais que la langue change
   useEffect(() => {
     if (activeTab === 'hangeul' && profile?.target_language !== 'Coréen') {
       setActiveTab('home')

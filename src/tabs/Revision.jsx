@@ -169,7 +169,6 @@ export default function Revision() {
     setQuizFinished(false)
   }
 
-  // Mode QUIZ
   if (selectedLesson && revisionQuiz) {
     return (
       <div className="p-6 pb-28 max-w-md mx-auto">
@@ -230,7 +229,6 @@ export default function Revision() {
     )
   }
 
-  // Affichage détail leçon
   if (selectedLesson) {
     const content = selectedLesson.content
     if (!content) return null
@@ -296,8 +294,7 @@ export default function Revision() {
           </button>
         </div>
         
-        {/* --- MODAL DE DÉTAILS DU MOT (DANS VUE DÉTAIL) --- */}
-        {selectedWord && (
+      {selectedWord && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedWord(null)}>
           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-slide-up relative text-left" onClick={e => e.stopPropagation()}>
             <button 
@@ -351,7 +348,6 @@ export default function Revision() {
     )
   }
 
-  // Liste principale
   return (
     <div className="p-6 pb-28 max-w-md mx-auto">
       <header className="pt-8 mb-6">

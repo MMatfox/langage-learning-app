@@ -47,12 +47,10 @@ export default function Flashcards() {
     const card = cards[currentIndex]
     const newMastery = Math.max(0, Math.min(100, card.mastery_level + score))
     
-    // Mise à jour optimiste
     const newCards = [...cards]
     newCards[currentIndex].mastery_level = newMastery
     setCards(newCards)
     
-    // Mise à jour BDD en arrière-plan
     await supabase.from('learned_words')
       .update({ 
         mastery_level: newMastery,
@@ -95,7 +93,6 @@ export default function Flashcards() {
       <header className="text-center mb-8 w-full">
         <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('flashcards.title')}</h2>
         
-        {/* Barre de progression */}
         <div className="flex gap-1 mt-4 justify-center h-1.5 w-full max-w-[200px] mx-auto">
           {cards.map((_, i) => (
             <div 
@@ -108,14 +105,12 @@ export default function Flashcards() {
         </div>
       </header>
 
-      {/* Carte */}
       <div className="relative w-full aspect-[3/4] max-h-[400px]" style={{ perspective: '1000px' }}>
         <div 
           onClick={() => setIsFlipped(!isFlipped)}
           className={`w-full h-full relative cursor-pointer transition-all duration-500 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}
           style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
         >
-          {/* FACE AVANT (RECTO) */}
           <div 
             className="absolute inset-0 bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center p-6 backface-hidden"
             style={{ backfaceVisibility: 'hidden' }}
@@ -128,7 +123,6 @@ export default function Flashcards() {
             </p>
           </div>
 
-          {/* FACE ARRIÈRE (VERSO) */}
           <div 
             className="absolute inset-0 bg-blue-600 dark:bg-blue-500 rounded-[2.5rem] shadow-xl flex flex-col items-center justify-center p-6 text-white backface-hidden transform-rotate-y-180"
             style={{ 
@@ -149,36 +143,34 @@ export default function Flashcards() {
               </span>
             )}
             
-            {/* BOUTON AUDIO */}
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                const utterance = new SpeechSynthesisUtterance(currentCard.word);
-                
-                const langMap = {
-                  'Coréen': 'ko-KR',
-                  'Japonais': 'ja-JP',
-                  'Chinois': 'zh-CN',
-                  'Anglais': 'en-US',
-                  'Français': 'fr-FR',
-                  'Espagnol': 'es-ES',
-                  'Allemand': 'de-DE'
-                };
-                
-                utterance.lang = langMap[profile?.target_language] || 'ko-KR'; // Fallback
-                utterance.rate = 0.8;
-                window.speechSynthesis.speak(utterance);
-              }}
-              className="mt-6 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all active:scale-90"
-              title="Écouter"
-            >
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const utterance = new SpeechSynthesisUtterance(currentCard.word);
+                  
+                  const langMap = {
+                    'Coréen': 'ko-KR',
+                    'Japonais': 'ja-JP',
+                    'Chinois': 'zh-CN',
+                    'Anglais': 'en-US',
+                    'Français': 'fr-FR',
+                    'Espagnol': 'es-ES',
+                    'Allemand': 'de-DE'
+                  };
+                  
+                  utterance.lang = langMap[profile?.target_language] || 'ko-KR'; // Fallback
+                  utterance.rate = 0.8;
+                  window.speechSynthesis.speak(utterance);
+                }}
+                className="mt-6 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all active:scale-90"
+                title="Écouter"
+              >
               🔊
             </button>
           </div>
         </div>
       </div>
 
-      {/* CONTRÔLES (Visibles uniquement si retourné) */}
       <div 
         className={`flex gap-4 mt-8 w-full transition-all duration-300 ${
           isFlipped ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'

@@ -52,7 +52,6 @@ export default function Hangeul() {
     const utterance = new SpeechSynthesisUtterance(char)
     utterance.lang = 'ko-KR'
     
-    // Forcer la recherche d'une voix coréenne
     const voices = window.speechSynthesis.getVoices()
     const koVoice = voices.find(v => v.lang.startsWith('ko'))
     if (koVoice) utterance.voice = koVoice
