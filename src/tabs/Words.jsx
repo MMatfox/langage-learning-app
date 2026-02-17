@@ -302,8 +302,8 @@ export default function Words() {
   )
 
   if (!currentWord) return (
-    <div className="p-6 pb-28 max-w-md mx-auto">
-      <header className="pt-8 mb-8">
+    <div className="p-6 pb-40 pt-4 max-w-md mx-auto">
+      <header className="mb-8">
         <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('words.title')}</h2>
         <p className="text-slate-600 dark:text-slate-300 text-sm mt-2">{t('words.desc', profile.target_language)}</p>
       </header>
@@ -334,8 +334,8 @@ export default function Words() {
   )
 
   return (
-    <div className="p-6 pb-28 max-w-md mx-auto">
-      <header className="pt-8 mb-6">
+    <div className="p-6 pb-40 pt-4 max-w-md mx-auto">
+      <header className="mb-6">
         <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('words.title')}</h2>
       </header>
 

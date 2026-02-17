@@ -8,6 +8,8 @@ export function AppProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [languageProfile, setLanguageProfile] = useState({ xp: 0, level: 1 })
   const [activeTab, setActiveTab] = useState('home')
+  const [learnTab, setLearnTab] = useState('lessons')
+  const [reviewTab, setReviewTab] = useState('revision')
   const [loading, setLoading] = useState(true)
   const [popup, setPopup] = useState({ message: '', type: 'info', isOpen: false })
   const [tutorMessages, setTutorMessages] = useState([])
@@ -159,6 +161,17 @@ export function AppProvider({ children }) {
     await loadLanguageProfile(language)
   }
 
+  // Formula: XP required for level L = 50 * L * (L - 1)
+  // Inverse: L = (1 + sqrt(1 + 0.08 * XP)) / 2
+  
+  function getLevelFromXP(xp) {
+    return Math.floor((1 + Math.sqrt(1 + 0.08 * xp)) / 2)
+  }
+
+  function getXPForLevel(level) {
+    return 50 * level * (level - 1)
+  }
+
   async function addXP(amount) {
     if (!profile?.target_language) return
 
@@ -166,16 +179,37 @@ export function AppProvider({ children }) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { error } = await supabase.rpc('add_xp_to_language', {
-        amount,
-        target_lang: profile.target_language
-      })
+      // Get latest data to ensure consistency
+      const { data: currentProfile, error: fetchError } = await supabase
+        .from('language_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('language', profile.target_language)
+        .single()
+      
+      if (fetchError) throw fetchError
 
-      if (error) throw error
+      const newXP = (currentProfile.xp || 0) + amount
+      const newLevel = getLevelFromXP(newXP)
+      
+      const { error: updateError } = await supabase
+        .from('language_profiles')
+        .update({ xp: newXP, level: newLevel })
+        .eq('id', currentProfile.id)
 
-      await loadLanguageProfile(profile.target_language)
+      if (updateError) throw updateError
+
+      // Update local state immediately
+      setLanguageProfile({ ...currentProfile, xp: newXP, level: newLevel })
+      
+      // Show level up popup if changed
+      if (newLevel > currentProfile.level) {
+        showPopup(`Niveau supérieur ! Tu es maintenant niveau ${newLevel} 🎉`, 'success')
+      }
+
     } catch (err) {
       console.error('Erreur ajout XP:', err)
+      showPopup("Erreur lors de la sauvegarde de l'XP", 'error')
     }
   }
 
@@ -208,11 +242,17 @@ export function AppProvider({ children }) {
     refreshLanguageProfile: () => loadLanguageProfile(profile?.target_language),
     activeTab,
     setActiveTab,
+    learnTab,
+    setLearnTab,
+    reviewTab,
+    setReviewTab,
     t,
     showPopup,
     popup,
     tutorMessages,
-    setTutorMessages
+    setTutorMessages,
+    getLevelFromXP,
+    getXPForLevel
   }
 
   return <AppContext.Provider value={activeTabValue}>{children}</AppContext.Provider>

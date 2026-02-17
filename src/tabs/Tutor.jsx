@@ -261,37 +261,37 @@ export default function Tutor() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
-      <div className="sticky top-0 p-4 bg-white/90 backdrop-blur-md border-b flex items-center justify-between pt-12 shadow-sm z-40">
+    <div className="flex flex-col min-h-full bg-[#F8FAFC] dark:bg-slate-900 relative">
+      <div className="sticky top-0 p-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b dark:border-slate-800 flex items-center justify-between shadow-sm z-30">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-2xl flex items-center justify-center text-2xl shadow-inner shadow-white/20">👨‍🏫</div>
           <div>
-            <h3 className="font-black text-slate-800 text-lg">{currentConfig.name}</h3>
+            <h3 className="font-black text-slate-800 dark:text-white text-lg">{currentConfig.name}</h3>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t('tutor.online')}</p>
             </div>
           </div>
         </div>
-        <button onClick={() => window.speechSynthesis.cancel()} className="p-2 bg-slate-50 rounded-xl text-slate-400 transition-colors active:bg-slate-200">🔇</button>
+        <button onClick={() => window.speechSynthesis.cancel()} className="p-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-400 dark:text-slate-500 transition-colors active:bg-slate-200 dark:active:bg-slate-700">🔇</button>
       </div>
 
       <div className="flex-1 p-4 space-y-6 pb-40">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
             <div className={`relative max-w-[85%] p-4 rounded-[2rem] shadow-sm text-sm leading-relaxed ${
-              m.role === 'user' ? 'bg-blue-600 text-white rounded-br-none shadow-blue-100' : 'bg-white text-slate-700 rounded-bl-none border border-slate-100'
+              m.role === 'user' ? 'bg-blue-600 text-white rounded-br-none shadow-blue-100 dark:shadow-none' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-bl-none border border-slate-100 dark:border-slate-700'
             }`}>
               {m.text}
               {m.role === 'model' && (
-                <button onClick={() => speak(m.text)} className="absolute -right-10 bottom-2 w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-50 text-xs">🔊</button>
+                <button onClick={() => speak(m.text)} className="absolute -right-10 bottom-2 w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-50 dark:border-slate-700 text-xs dark:text-slate-300">🔊</button>
               )}
             </div>
           </div>
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-white p-4 rounded-3xl rounded-bl-none border border-slate-100 flex gap-1">
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl rounded-bl-none border border-slate-100 dark:border-slate-700 flex gap-1">
               <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></span>
               <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
               <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0.4s]"></span>
@@ -301,21 +301,21 @@ export default function Tutor() {
         <div ref={chatEndRef} />
       </div>
 
-      <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC] z-40">
-        <form onSubmit={sendMessage} className="max-w-md mx-auto bg-white p-2 rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-slate-100 flex gap-2 items-center">
+      <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC] dark:from-slate-900 dark:via-slate-900 z-40">
+        <form onSubmit={sendMessage} className="max-w-md mx-auto bg-white dark:bg-slate-800 p-2 rounded-[2.5rem] shadow-2xl shadow-blue-900/10 dark:shadow-slate-900/50 border border-slate-100 dark:border-slate-700 flex gap-2 items-center">
           <button 
             type="button"
             onClick={toggleVoiceInput}
             disabled={isStarting}
             className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-md active:scale-95 active:shadow-inner ${
-              isListening ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200' : 
-              isStarting ? 'bg-yellow-400 text-white animate-spin' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              isListening ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200 dark:ring-red-900' : 
+              isStarting ? 'bg-yellow-400 text-white animate-spin' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
             }`}
           >
             {isStarting ? '⏳' : isListening ? '⏹️' : '🎤'}
           </button>
           <input 
-            className="flex-1 bg-transparent py-2 px-1 text-sm focus:outline-none"
+            className="flex-1 bg-transparent py-2 px-1 text-sm focus:outline-none dark:text-white"
             placeholder={t('tutor.placeholder', profile.target_language)}
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -326,7 +326,7 @@ export default function Tutor() {
 
       {isListening && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex flex-col items-center justify-center animate-fade-in backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-full shadow-2xl animate-pulse relative">
+          <div className="bg-white dark:bg-slate-800 p-8 rounded-full shadow-2xl animate-pulse relative">
             <span className="text-6xl">🎤</span>
             <div className="absolute inset-0 border-4 border-blue-400 rounded-full animate-ping opacity-20"></div>
           </div>

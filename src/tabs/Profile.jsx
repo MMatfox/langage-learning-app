@@ -90,21 +90,19 @@ export default function Profile() {
 
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase">{t('profile.app_lang')}</label>
-              <div className="grid grid-cols-3 gap-2">
-                {['Français', 'English', 'Español'].map(lang => (
-                  <button
-                    key={lang}
-                    onClick={() => updateUILanguage(lang)}
-                    className={`py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${
-                      profile.ui_language === lang 
-                      ? 'bg-blue-500 text-white border-blue-500 ring-2 ring-blue-200 dark:ring-blue-900' 
-                      : 'bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300 border-slate-200 text-slate-500'
-                    }`}
-                  >
-                    {profile.ui_language === lang && <span>✓</span>}
-                    {t(`languages.${lang}`, lang)}
-                  </button>
-                ))}
+              <div className="relative">
+                <select
+                  value={profile.ui_language}
+                  onChange={(e) => updateUILanguage(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-white font-bold p-3 rounded-xl border-r-8 border-transparent outline-none appearance-none shadow-sm cursor-pointer text-sm"
+                >
+                  {['Français', 'English', 'Español', 'Deutsch', 'Italiano', 'Português'].map(lang => (
+                    <option key={lang} value={lang}>
+                      {t(`languages.${lang}`, lang)}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">▼</div>
               </div>
             </div>
 

@@ -1,7 +1,7 @@
 import { useApp } from '../AppContext'
 
 function Home() {
-  const { profile, languageProfile, loading: profileLoading, setActiveTab, t } = useApp()
+  const { profile, languageProfile, loading: profileLoading, setActiveTab, setLearnTab, setReviewTab, t, getXPForLevel } = useApp()
 
   if (profileLoading) return (
     <div className="flex items-center justify-center h-full">
@@ -10,12 +10,20 @@ function Home() {
   )
 
   const displayName = profile?.username?.split('@')[0] || 'Utilisateur'
-  const xpForNextLevel = 100 // Supposons 100 XP par niveau pour l'affichage
-  const currentLevelProgress = languageProfile.xp % xpForNextLevel
-  const progressPercent = (currentLevelProgress / xpForNextLevel) * 100
+  
+  const currentLevel = languageProfile.level
+  const currentXP = languageProfile.xp || 0
+  
+  const xpForCurrentLevel = getXPForLevel(currentLevel)
+  const xpForNextLevel = getXPForLevel(currentLevel + 1)
+  
+  const xpNeededForLevel = xpForNextLevel - xpForCurrentLevel
+  const xpProgressInLevel = currentXP - xpForCurrentLevel
+  
+  const progressPercent = Math.min(100, Math.max(0, (xpProgressInLevel / xpNeededForLevel) * 100))
 
   return (
-    <div className="p-6 pb-28 max-w-md mx-auto space-y-8 animate-fade-in relative">
+    <div className="p-6 pb-40 max-w-md mx-auto space-y-8 animate-fade-in relative">
       
       <header className="flex justify-between items-center pt-4">
         <div>
@@ -35,19 +43,19 @@ function Home() {
       <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-700 relative overflow-hidden">
         <div className="flex justify-between items-end mb-4 relative z-10">
           <div>
-            <span className="text-5xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">{languageProfile.level}</span>
+            <span className="text-5xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">{currentLevel}</span>
             <span className="text-sm font-bold text-slate-400 dark:text-slate-500 ml-2 uppercase">{t('profile.level')}</span>
           </div>
           <div className="text-right">
-            <span className="text-xl font-black text-purple-600 dark:text-purple-400">{languageProfile.xp}</span>
+            <span className="text-xl font-black text-purple-600 dark:text-purple-400">{currentXP}</span>
             <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 block uppercase tracking-wide">XP Total</span>
           </div>
         </div>
 
         <div className="space-y-2 relative z-10">
           <div className="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-            <span>{currentLevelProgress} XP</span>
-            <span>{xpForNextLevel} XP</span>
+            <span>{xpProgressInLevel} XP</span>
+            <span>{xpNeededForLevel} XP</span>
           </div>
           <div className="w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner">
             <div 
@@ -58,7 +66,7 @@ function Home() {
             </div>
           </div>
           <p className="text-xs text-center text-slate-400 font-medium pt-1">
-            {xpForNextLevel - currentLevelProgress} XP {t('home.until_next_level')}
+            {xpNeededForLevel - xpProgressInLevel} XP {t('home.until_next_level')}
           </p>
         </div>
 
@@ -89,28 +97,40 @@ function Home() {
             icon="📖"
             title={t('home.new_lesson')}
             description={t('home.new_lesson_desc')}
-            onClick={() => setActiveTab('lessons')}
+            onClick={() => {
+              setLearnTab('lessons')
+              setActiveTab('learn')
+            }}
             color="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
           />
           <ActionCard
             icon="🔁"
             title={t('home.revision')}
             description={t('home.revision_desc')}
-            onClick={() => setActiveTab('revision')}
+            onClick={() => {
+              setReviewTab('revision')
+              setActiveTab('review')
+            }}
             color="bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400"
           />
           <ActionCard
             icon="🃏"
             title={t('home.flashcards')}
             description={t('home.flashcards_desc')}
-            onClick={() => setActiveTab('flashcards')}
+            onClick={() => {
+              setReviewTab('flashcards')
+              setActiveTab('review')
+            }}
             color="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
           />
           <ActionCard
             icon="👨‍🏫"
             title={t('home.tutor')}
             description={t('home.tutor_desc')}
-            onClick={() => setActiveTab('tutor')}
+            onClick={() => {
+              setReviewTab('tutor')
+              setActiveTab('review')
+            }}
             color="bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
           />
         </div>

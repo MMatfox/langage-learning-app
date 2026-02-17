@@ -171,7 +171,7 @@ export default function Revision() {
 
   if (selectedLesson && revisionQuiz) {
     return (
-      <div className="p-6 pb-28 max-w-md mx-auto">
+      <div className="p-6 pb-40 pt-4 max-w-md mx-auto">
         <button onClick={closeQuiz} className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-bold mb-6 text-xs uppercase tracking-widest">
           {t('revision.quit_quiz')}
         </button>
@@ -234,7 +234,7 @@ export default function Revision() {
     if (!content) return null
 
     return (
-      <div className="p-6 pb-28 max-w-md mx-auto">
+      <div className="p-6 pb-40 pt-4 max-w-md mx-auto">
         <button 
           onClick={() => setSelectedLesson(null)} 
           className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold mb-4 flex items-center gap-2"
@@ -349,8 +349,8 @@ export default function Revision() {
   }
 
   return (
-    <div className="p-6 pb-28 max-w-md mx-auto">
-      <header className="pt-8 mb-6">
+    <div className="p-6 pb-40 pt-4 max-w-md mx-auto">
+      <header className="mb-6">
         <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('revision.title')}</h2>
         
         <div className="flex bg-slate-200 dark:bg-slate-700 p-1 rounded-2xl mt-4">
